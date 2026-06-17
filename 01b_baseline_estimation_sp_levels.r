@@ -26,7 +26,7 @@
   comb.grid <- expand.grid(1:length(glob.shrink.list),1)
   zz <- 1  #in case length(glob.shrink.list)>1
 
-  CPU=4 #set equal to the total number of CPU cores available on your desktop/server/cluster ;
+  CPU=1 #set equal to the total number of CPU cores available on your desktop/server/cluster ;
   saves <- 50 #number of retained draws (should be really large, >10,000)
   burns <- 50 #number of burned draws (should be even larger, >30,000)
   thin <- .1 #thinning (i.e. retain every 10th draw, saves memory)
@@ -90,10 +90,10 @@
     x <- t(xglobal)
 #---------------------------------------------------------------------------------#
     
-    sfInit(parallel=TRUE,cpus=CPU)
-    sfExport(list=list("mlag","BVAR","datahandling","xglobal","gW","Daten","cN","bvartvpm","saves","burns","thin","ext.inst","shrink.parm"))
-    predDens <- sfLapply(1:length(cN),function(i) BVAR(i,gW=gW,bigx=xglobal,Daten,cN,nsave=saves,nburn=burns,thin_chain=thin,ext.inst=ext.inst,parms=shrink.parm))#,c_tau=shrink.parm[[1]],d_tau=shrink.parm[[2]]
-    sfStop()
+    #sfInit(parallel=TRUE,cpus=CPU)
+    #sfExport(list=list("mlag","BVAR","datahandling","xglobal","gW","Daten","cN","bvartvpm","saves","burns","thin","ext.inst","shrink.parm"))
+    predDens <- lapply(1:length(cN),function(i) BVAR(i,gW=gW,bigx=xglobal,Daten,cN,nsave=saves,nburn=burns,thin_chain=thin,ext.inst=ext.inst,parms=shrink.parm))#,c_tau=shrink.parm[[1]],d_tau=shrink.parm[[2]]
+    #sfStop()
     
     save(predDens,file="ttvp_gvar_ssr_sp_level.rda")
     
@@ -117,10 +117,10 @@
   for (irep in 1:thin.fac){  
     A.i <- rapply(A.list, classes = 'array', how = 'list', f = function(x) x[,,,irep])
     S.i <- rapply(Sigma.posterior, classes = 'array', how = 'list', f = function(x) x[,,,irep])
-    sfInit(parallel=TRUE,cpus=CPU) #can put whatever here
-    sfExport(list=list("irf.mcmc","get.irfa.t","xglobal","nhor","irf","ext.inst","sign.irf","split.function",'A.i','globalG','S.i'))
+    #sfInit(parallel=TRUE,cpus=CPU) #can put whatever here
+    #sfExport(list=list("irf.mcmc","get.irfa.t","xglobal","nhor","irf","ext.inst","sign.irf","split.function",'A.i','globalG','S.i'))
     IRF.big<- sfLapply(1:(nrow(xglobal)-1),function(i) get.irfa.t(i, A.i, S.i  , t(xglobal), globalG, horz=nhor))
-    sfStop()
+    #sfStop()
     
     for (ss in 1:(nrow(xglobal)-1)){
       IRF_post[ss,,,irep] <- IRF.big[[ss]]$IRF_post
