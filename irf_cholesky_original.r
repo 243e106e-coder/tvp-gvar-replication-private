@@ -1,5 +1,5 @@
-sign.irf <- function(maxlag=length(gvarobj$F),slct_var="US_er",G=gvarobj$G,F=gvarobj$F,sig=sigs,x=gvarobj$x,horizon=40){  
- # maxlag=length(F_1);slct_var="US_er";G=G;F=F_1;sig=S_post;x=x;horizon=20
+sign.irf <- function(maxlag=length(gvarobj$F),slct_var="US.stir",G=gvarobj$G,F=gvarobj$F,sig=sigs,x=gvarobj$x,horizon=40){  
+ # maxlag=length(F_1);slct_var="US.stir";G=G;F=F_1;sig=S_post;x=x;horizon=20
   require(Matrix)
   covlist <- NULL
   names <- substr(rownames(x),1,2)
@@ -89,17 +89,17 @@ sign.irf <- function(maxlag=length(gvarobj$F),slct_var="US_er",G=gvarobj$G,F=gva
     # R>0, M<0, y<0, and P<0 for the irs periods.
     #a = (imf3hat(1:irs,3,3) > 0) .* (imf3hat(1:irs,4,3) < 0) .* (imf3hat(1:irs,1,3) < 0) .* (imf3hat(1:irs,2,3) < 0);
     #Impose AD shock
-    a <- (impact["US_cp","US_cp"]>0)*(impact["US_cp","US_cp"]>0)*(impact["US_er","US_cp"]>0)
+    a <- (impact["US.y.qoq","US.y.qoq"]>0)*(impact["US.Dp.qoq","US.y.qoq"]>0)*(impact["US.stir","US.y.qoq"]>0)
     if (!(all(a)==1)){
       next
     }
     #impose restrictions on AS shock
-    b <- (impact["US_cp","US_cp"]<0)*(impact["US_cp","US_cp"]>0)*(impact["US_er","US_cp"]>0)
+    b <- (impact["US.y.qoq","US.Dp.qoq"]<0)*(impact["US.Dp.qoq","US.Dp.qoq"]>0)*(impact["US.stir","US.Dp.qoq"]>0)
     if (!(all(b)==1)){
       next
     }
     #impose restrictions on MP shock
-    c <- (impact["US_cp","US_er"]<0)*(impact["US_cp","US_er"]<0)*(impact["US_er","US_er"]>0)*(impact["US_eq","US_er"]<0)*(impact["US_eq","US_er"]<0)
+    c <- (impact["US.y.qoq","US.stir"]<0)*(impact["US.Dp.qoq","US.stir"]<0)*(impact["US.stir","US.stir"]>0)*(impact["US.sp","US.stir"]<0)*(impact["US.eq.qoq","US.stir"]<0)
     if (!(all(c)==1)){
       next
     }
@@ -115,12 +115,12 @@ sign.irf <- function(maxlag=length(gvarobj$F),slct_var="US_er",G=gvarobj$G,F=gva
 
   dimnames(irfa)[[1]] <- dimnames(irfa)[[2]]  <- rownames(x)
   rot.max <- ifelse(icounter==max.counter,NA,1)
-  irfa <- rot.max*irfa[,"US_er",] #CAN SELECT AS AD AND MP SHOCK HERE; if wanted
+  irfa <- rot.max*irfa[,"US.stir",] #CAN SELECT AS AD AND MP SHOCK HERE; if wanted
   return(irfa)
 }
 
 
-irf <- function(maxlag=length(gvarobj$F),slct_var="US_er",G=gvarobj$G,F=gvarobj$F,sig=sigs,x=gvarobj$x,horizon=40){  
+irf <- function(maxlag=length(gvarobj$F),slct_var="US.stir",G=gvarobj$G,F=gvarobj$F,sig=sigs,x=gvarobj$x,horizon=40){  
   require(Matrix)
   covlist <- NULL
   names <- substr(rownames(x),1,2)
@@ -187,7 +187,7 @@ irf <- function(maxlag=length(gvarobj$F),slct_var="US_er",G=gvarobj$G,F=gvarobj$
   return(irfa)
 }
 
-irf_all <- function(maxlag=length(gvarobj$F),slct_var="US_er",G=gvarobj$G,F=gvarobj$F,sig=sigs,x=gvarobj$x,horizon=40,group_select=Grps){  
+irf_all <- function(maxlag=length(gvarobj$F),slct_var="US.stir",G=gvarobj$G,F=gvarobj$F,sig=sigs,x=gvarobj$x,horizon=40,group_select=Grps){  
  #maxlag=1;G=G;F=F_1;sig=S_post;x=x;horizon=20;group_select=Grps
   require(Matrix)
   covlist <- NULL
@@ -261,7 +261,7 @@ irf_all <- function(maxlag=length(gvarobj$F),slct_var="US_er",G=gvarobj$G,F=gvar
   dimnames(irfa)[[1]]  <- rownames(x)
   }
   
-  stir_resp <- irfa["US_er",]
+  stir_resp <- irfa["US.stir",]
   stir_irf[,ik] <- stir_resp
   }
   stir_all <- irfa
@@ -270,7 +270,7 @@ irf_all <- function(maxlag=length(gvarobj$F),slct_var="US_er",G=gvarobj$G,F=gvar
   return(list(stir_irf,stir_all,impacts))
 }
 
-irf_global <- function(maxlag=length(gvarobj$F),slct_var="US_er",G=gvarobj$G,F=gvarobj$F,sig=sigs,x=gvarobj$x,horizon=40){  
+irf_global <- function(maxlag=length(gvarobj$F),slct_var="US.stir",G=gvarobj$G,F=gvarobj$F,sig=sigs,x=gvarobj$x,horizon=40){  
   # maxlag=1;slct_var=paste(EA,"stir",sep=".");G=G;F=F_1;sig=S_post;x=x;horizon=20
   require(Matrix)
   covlist <- NULL
@@ -340,15 +340,15 @@ irf_global <- function(maxlag=length(gvarobj$F),slct_var="US_er",G=gvarobj$G,F=g
     }
     dimnames(irfa)[[1]]  <- rownames(x)
   }
-  stir_resp <- irfa["US_er",,]
+  stir_resp <- irfa["US.stir",,]
   stir_all <- irfa
   dimnames(stir_resp)[[2]] <- var_slct
   
   return(list(stir_resp,stir_all))
 }
 
-irf_girf <- function(maxlag=length(gvarobj$F),slct_var="US_er",G=gvarobj$G,F=gvarobj$F,sig=sigs,x=gvarobj$x,horizon=40,group_select=Grps){  
- # maxlag=1;slct_var="US_er";G=G;F=F_1;sig=S_post;x=x;horizon=20;group_select=Grps
+irf_girf <- function(maxlag=length(gvarobj$F),slct_var="US.stir",G=gvarobj$G,F=gvarobj$F,sig=sigs,x=gvarobj$x,horizon=40,group_select=Grps){  
+ # maxlag=1;slct_var="US.stir";G=G;F=F_1;sig=S_post;x=x;horizon=20;group_select=Grps
   require(Matrix)
   covlist <- NULL
   names <- substr(rownames(x),1,2)
@@ -415,7 +415,7 @@ irf_girf <- function(maxlag=length(gvarobj$F),slct_var="US_er",G=gvarobj$G,F=gva
       dimnames(irfa)[[1]]  <- rownames(x)
     }
     
-    stir_resp <- irfa["US_er",,]
+    stir_resp <- irfa["US.stir",,]
     stir_irf[,,ik] <- stir_resp
   }
   stir_all <- irfa

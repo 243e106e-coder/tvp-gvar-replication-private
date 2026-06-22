@@ -27,9 +27,9 @@
   zz <- 1  #in case length(glob.shrink.list)>1
 
   CPU=1 #set equal to the total number of CPU cores available on your desktop/server/cluster ;
-  saves <- 50 #number of retained draws (should be really large, >10,000)
-  burns <- 50 #number of burned draws (should be even larger, >30,000)
-  thin <- .1 #thinning (i.e. retain every 10th draw, saves memory)
+  saves <- 5 #number of retained draws (should be really large, >10,000)
+  burns <- 5 #number of burned draws (should be even larger, >30,000)
+  thin <- 1 #thinning (i.e. retain every 10th draw, saves memory)
 
   #-------------------------------------Loads the dataset ---------------------------------------------------------#
   long.sl <- "long"
@@ -47,30 +47,15 @@
   EA<-c("AT","BE","DE","ES","FI","FR","GR", "IT","NL","PT")
   Grps <- list(West=West,Rest=Rest,Asia=Asia,LA=LA)
   
-  if (long.sl=="short"){
-    Data.setup <- data.sets[[as.numeric(comb.grid[zz,2])]]#load("dat.long.RData")#
-  }else{
-    Data.setup <- data.sets[[as.numeric(comb.grid[zz,2])]]
-  }
-  load("krippner_ssr.rda")
+  Data.setup <- data.sets$asia_gpr_3var
   
-  Daten <- Data.setup$new.data
-  xglobal<-window(ts(Data.setup$bigx/100,start=c(1980,1), frequency = 4), start=c(1990,1),end=c(2016,4))#
+  Daten <- NULL
   
-  
-  stir <- xglobal[,grepl("stir",colnames(xglobal))]
-  colnames(stir) <- substr(colnames(stir),1,2)
-  
-  pdf("shadow_rate_plot.pdf")
-  matplot(xaxt="n",cbind(window(stir[,"US"], start=c(1999,1), end=c(2016,4)), window(ssr.q[,"US"],start=c(1999,1),end=c(2016,4))/100),type="l",xlab="",ylab="")
-  Dates<-paste0(rep(1999:2016, each=4),c("Q1","Q2","Q3","Q4"));axis.index=c(seq(1,length(Dates),by=4),length(Dates))
-  axis(at=axis.index,labels=Dates[axis.index],side=1,las=2)
-  grid()
-  dev.off()
-  
-  window(stir[,c("US","JP","GB")],start=c(1999,1), end=c(2016,4)) <- window(ssr.q[,c("US","JP","GB")],start=c(1999,1),end=c(2016,4))/100
-  window(stir[,EA],start=1999)<- window(ssr.q[,"EA"],start=c(1999,1),end=c(2016,4))/100
-  xglobal[,grepl("stir",colnames(xglobal))] <- stir
+  xglobal <- ts(
+    Data.setup$bigx / 100,
+    start = c(1998, 2),
+    frequency = 4
+  )
   
 
   #-------------------------------------Estimating country-specific TTVP VARs ---------------------------------------------------------#
@@ -80,8 +65,7 @@
     gW<-Data.setup$gW
     nhor <- 14
     plag<-1
-    cN<-substr(colnames(xglobal),1,2)
-    cN <- cN[!duplicated(cN)]
+    cN <- names(Data.setup$gW)
     BVAR <- cmpfun(BVAR)
     
 
@@ -96,6 +80,7 @@
     #sfStop()
     
     save(predDens,file="ttvp_gvar_ssr_sp_level.rda")
+    q(save="no")
     
     #Creates a set of lists that only include coefficients and VC matrices + Weights
     #Stuff we have to compute once for the full system
@@ -109,7 +94,7 @@
   thin.fac <- round(thin*saves)
   #-------------------------------------Compute IRFs based on sign-restrictions using parallel computing---------------------------------------------#
   IRF_post <-  array(NA,dim=c(nrow(xglobal)-1,ncol(xglobal),nhor+1,thin.fac))
-  t.names<-seq(1990,2017,by=0.25)[-c(1,109)]
+  t.names <- time(xglobal)[-1]
   dimnames(IRF_post) <- list(t.names,colnames(xglobal),c(0:nhor),NULL)
 
   pb <- txtProgressBar(min = 0, max = thin.fac, style = 3) #start progress bar
@@ -131,6 +116,7 @@
   print(end-start)   
   
   save(IRF_post,file="irf_ttvp_gvar_ssr.rda")
+  q(save="no")
   
   #-------------------------------------Do a lot of plots ---------------------------------------------------------#
   
