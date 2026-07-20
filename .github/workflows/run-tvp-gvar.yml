@@ -1,1 +1,61 @@
+name: Run Endogenous GPR TVP GVAR
 
+on: workflow_dispatch
+
+jobs:
+  estimate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install R packages
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::remotes
+            any::snowfall
+            any::zoo
+            any::Matrix
+            any::mvtnorm
+            any::coda
+            any::bayesm
+            any::psych
+            any::MCMCpack
+            any::mnormt
+            any::rARPACK
+            any::ggplot2
+            any::GIGrvg
+            any::dlm
+            any::Rcpp
+            any::RcppArmadillo
+
+      - name: Install compatible stochvol
+        run: Rscript -e 'remotes::install_version("stochvol", version="3.2.9", repos="https://cloud.r-project.org", upgrade="never")'
+
+      - name: Install bundled threshtvp
+        run: R CMD INSTALL threshtvp_0.2.tar.gz
+
+      - name: Run TVP GVAR test
+        env:
+          TVPGVAR_SAVES: "50"
+          TVPGVAR_BURNS: "50"
+          TVPGVAR_THIN: "0.1"
+          TVPGVAR_HORIZON: "12"
+        run: Rscript run_gpr_tvp_gvar.R
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: endogenous-gpr-tvp-gvar-results
+          path: results/
+          retention-days: 30
