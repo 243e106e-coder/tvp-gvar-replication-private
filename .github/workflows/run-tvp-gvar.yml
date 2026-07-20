@@ -42,8 +42,11 @@ jobs:
       - name: Install compatible stochvol
         run: Rscript -e 'remotes::install_version("stochvol", version="3.2.9", repos="https://cloud.r-project.org", upgrade="never")'
 
-      - name: Install patched threshtvp
-        run: R CMD INSTALL threshtvp_source
+      -       - name: Patch and install threshtvp
+        run: |
+          sed -i 's|inv_f=solve(f.t(),Vtt.t(), "std").t();|inv_f=solve(arma::mat(f.t()),arma::mat(Vtt.t()), "std").t();|' threshtvp_source/src/threshold_functions.cpp
+          grep -n "inv_f=solve" threshtvp_source/src/threshold_functions.cpp
+          R CMD INSTALL threshtvp_source
 
       - name: Run TVP GVAR test
         env:
