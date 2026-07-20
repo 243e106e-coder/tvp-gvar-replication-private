@@ -1,6 +1,7 @@
 name: Run Endogenous GPR TVP GVAR
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
 
 jobs:
   estimate:
@@ -41,8 +42,8 @@ jobs:
       - name: Install compatible stochvol
         run: Rscript -e 'remotes::install_version("stochvol", version="3.2.9", repos="https://cloud.r-project.org", upgrade="never")'
 
-      - name: Install bundled threshtvp
-        run: R CMD INSTALL threshtvp_0.2.tar.gz
+      - name: Install patched threshtvp
+        run: R CMD INSTALL threshtvp_source
 
       - name: Run TVP GVAR test
         env:
