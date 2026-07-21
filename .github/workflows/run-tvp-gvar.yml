@@ -52,7 +52,7 @@ jobs:
         env:
           TVPGVAR_SAVES: "500"
           TVPGVAR_BURNS: "500"
-          TVPGVAR_THIN: "0.1"
+          TVPGVAR_THIN: "0.5"
           TVPGVAR_HORIZON: "12"
         run: Rscript run_gpr_tvp_gvar.R
 
