@@ -1,7 +1,24 @@
-name: Run Endogenous GPR TVP GVAR
+name: Run 14-Economy Endogenous GPR TVP-GVAR
 
 on:
   workflow_dispatch:
+    inputs:
+      saves:
+        description: "Posterior saves (50 for smoke test)"
+        required: true
+        default: "50"
+      burns:
+        description: "Burn-in draws (50 for smoke test)"
+        required: true
+        default: "50"
+      thin:
+        description: "Fraction of saves retained for IRF calculations"
+        required: true
+        default: "0.5"
+      horizon:
+        description: "IRF horizon in quarters"
+        required: true
+        default: "12"
 
 jobs:
   estimate:
@@ -23,6 +40,7 @@ jobs:
         with:
           packages: |
             any::remotes
+            any::readxl
             any::snowfall
             any::zoo
             any::Matrix
@@ -48,18 +66,41 @@ jobs:
           grep -n "inv_f=solve" threshtvp_source/src/threshold_functions.cpp
           R CMD INSTALL threshtvp_source
 
-      - name: Run TVP GVAR test
+      - name: Activate 14-economy code from 8.12 folder
+        run: |
+          cp "8.12/prepare_data(1).R" "R/prepare_data.R"
+          cp "8.12/build_14e_input_8.12.R" "R/build_14e_input.R"
+          echo "Activated 14-economy code:"
+          grep 'countries <-' R/prepare_data.R
+          test -f R/build_14e_input.R
+
+      - name: Build and validate 14-economy model input
+        run: Rscript R/build_14e_input.R
+
+      - name: Show generated input summary
+        run: |
+          cat results/build_input_summary.txt
+          echo "model_input columns:"
+          head -n 1 data/model_input.csv
+          echo "trade weights:"
+          cat data/trade_weights.csv
+
+      - name: Run TVP-GVAR
         env:
-          TVPGVAR_SAVES: "500"
-          TVPGVAR_BURNS: "500"
-          TVPGVAR_THIN: "0.5"
-          TVPGVAR_HORIZON: "12"
+          TVPGVAR_SAVES: ${{ inputs.saves }}
+          TVPGVAR_BURNS: ${{ inputs.burns }}
+          TVPGVAR_THIN: ${{ inputs.thin }}
+          TVPGVAR_HORIZON: ${{ inputs.horizon }}
         run: Rscript run_gpr_tvp_gvar.R
 
-      - name: Upload results
+      - name: Upload results and generated inputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: endogenous-gpr-tvp-gvar-results
-          path: results/
+          name: tvp-gvar-14e-results
+          path: |
+            results/
+            data/model_input.csv
+            data/trade_weights.csv
+          if-no-files-found: warn
           retention-days: 30
