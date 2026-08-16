@@ -1,0 +1,106 @@
+name: Run 14-Economy Endogenous GPR TVP-GVAR
+
+on:
+  workflow_dispatch:
+    inputs:
+      saves:
+        description: "Posterior saves (50 for smoke test)"
+        required: true
+        default: "50"
+      burns:
+        description: "Burn-in draws (50 for smoke test)"
+        required: true
+        default: "50"
+      thin:
+        description: "Fraction of saves retained for IRF calculations"
+        required: true
+        default: "0.5"
+      horizon:
+        description: "IRF horizon in quarters"
+        required: true
+        default: "12"
+
+jobs:
+  estimate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install R packages
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::remotes
+            any::readxl
+            any::snowfall
+            any::zoo
+            any::Matrix
+            any::mvtnorm
+            any::coda
+            any::bayesm
+            any::psych
+            any::MCMCpack
+            any::mnormt
+            any::rARPACK
+            any::ggplot2
+            any::GIGrvg
+            any::dlm
+            any::Rcpp
+            any::RcppArmadillo
+
+      - name: Install compatible stochvol
+        run: Rscript -e 'remotes::install_version("stochvol", version="3.2.9", repos="https://cloud.r-project.org", upgrade="never")'
+
+      - name: Patch and install threshtvp
+        run: |
+          sed -i 's|inv_f=solve(f.t(),Vtt.t(), "std").t();|inv_f=solve(arma::mat(f.t()),arma::mat(Vtt.t()), "std").t();|' threshtvp_source/src/threshold_functions.cpp
+          grep -n "inv_f=solve" threshtvp_source/src/threshold_functions.cpp
+          R CMD INSTALL threshtvp_source
+
+      - name: Activate 14-economy code from 8.12 folder
+        run: |
+          cp "8.12/prepare_data(1).R" "R/prepare_data.R"
+          cp "8.12/build_14e_input_DIRECT_14C.R" "R/build_14e_input.R"
+          echo "Activated 14-economy code:"
+          grep 'countries <-' R/prepare_data.R
+          test -f R/build_14e_input.R
+
+      - name: Build and validate 14-economy model input
+        run: Rscript R/build_14e_input.R
+
+      - name: Show generated input summary
+        run: |
+          cat results/build_input_summary.txt
+          echo "model_input columns:"
+          head -n 1 data/model_input.csv
+          echo "trade weights:"
+          cat data/trade_weights.csv
+
+      - name: Run TVP-GVAR
+        env:
+          TVPGVAR_SAVES: ${{ inputs.saves }}
+          TVPGVAR_BURNS: ${{ inputs.burns }}
+          TVPGVAR_THIN: ${{ inputs.thin }}
+          TVPGVAR_HORIZON: ${{ inputs.horizon }}
+        run: Rscript run_gpr_tvp_gvar.R
+
+      - name: Upload results and generated inputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tvp-gvar-14e-results
+          path: |
+            results/
+            data/model_input.csv
+            data/trade_weights.csv
+          if-no-files-found: warn
+          retention-days: 30
