@@ -1,0 +1,143 @@
+name: Run 14-Economy Structural Global GPR TVP-GVAR
+
+on:
+  workflow_dispatch:
+    inputs:
+      saves:
+        description: "Posterior saves (100 for smoke test; increase for paper run)"
+        required: true
+        default: "100"
+      burns:
+        description: "Burn-in draws (100 for smoke test; increase for paper run)"
+        required: true
+        default: "100"
+      thin:
+        description: "Fraction of saves retained for IRF calculations"
+        required: true
+        default: "0.5"
+      horizon:
+        description: "IRF horizon in quarters"
+        required: true
+        default: "12"
+      shock_pct:
+        description: "Impact increase in global GPR, percent"
+        required: true
+        default: "10"
+      gpr_column:
+        description: "GPR transform: LN_GPR_QMEAN (baseline), LN_GPR_QMAX, LN_GPRT_QMEAN, LN_GPRA_QMEAN"
+        required: true
+        default: "LN_GPR_QMEAN"
+
+jobs:
+  estimate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    env:
+      TVPGVAR_MACRO_XLSX: "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+      TVPGVAR_WEIGHT_XLSX: "8.12/Trade_Weights_14_Economies_2000_2012(2).xlsx"
+      TVPGVAR_GPR_CSV: "8.12/gpr_quarterly_processed.csv"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install R packages
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::remotes
+            any::readxl
+            any::snowfall
+            any::zoo
+            any::Matrix
+            any::mvtnorm
+            any::coda
+            any::bayesm
+            any::psych
+            any::MCMCpack
+            any::mnormt
+            any::rARPACK
+            any::ggplot2
+            any::GIGrvg
+            any::dlm
+            any::Rcpp
+            any::RcppArmadillo
+
+      - name: Install compatible stochvol
+        run: Rscript -e 'remotes::install_version("stochvol", version="3.2.9", repos="https://cloud.r-project.org", upgrade="never")'
+
+      - name: Patch and install threshtvp
+        run: |
+          sed -i 's|inv_f=solve(f.t(),Vtt.t(), "std").t();|inv_f=solve(arma::mat(f.t()),arma::mat(Vtt.t()), "std").t();|' threshtvp_source/src/threshold_functions.cpp
+          grep -n "inv_f=solve" threshtvp_source/src/threshold_functions.cpp
+          R CMD INSTALL threshtvp_source
+
+      - name: Activate structural helper code
+        run: |
+          cp "8.12/prepare_data_structural.R" "R/prepare_data_structural.R"
+          cp "8.12/gpr_structural_irf.R" "R/gpr_structural_irf.R"
+          test -f "R/prepare_data_structural.R"
+          test -f "R/gpr_structural_irf.R"
+          test -f "8.12/run_gpr_tvp_gvar_structural.R"
+          test -f "$TVPGVAR_GPR_CSV"
+          test -f "$TVPGVAR_MACRO_XLSX"
+          test -f "$TVPGVAR_WEIGHT_XLSX"
+
+      - name: Build structural 14-economy input
+        env:
+          TVPGVAR_GPR_COLUMN: ${{ inputs.gpr_column }}
+        run: Rscript "8.12/02_build_14e_input_structural.R"
+
+      - name: Show structural input diagnostics
+        run: |
+          cat results/build_structural_input_summary.txt
+          echo "model_input columns:"
+          head -n 1 data/model_input.csv
+          echo "US block columns:"
+          python - <<'PY'
+          import csv
+          with open('data/model_input.csv', newline='', encoding='utf-8') as f:
+              cols = next(csv.reader(f))
+          print([c for c in cols if c.startswith('US_')])
+          PY
+
+      - name: Run structural TVP-GVAR
+        env:
+          TVPGVAR_SAVES: ${{ inputs.saves }}
+          TVPGVAR_BURNS: ${{ inputs.burns }}
+          TVPGVAR_THIN: ${{ inputs.thin }}
+          TVPGVAR_HORIZON: ${{ inputs.horizon }}
+          TVPGVAR_GPR_SHOCK_PCT: ${{ inputs.shock_pct }}
+        run: Rscript "8.12/run_gpr_tvp_gvar_structural.R"
+
+      - name: Show sign diagnostics
+        if: always()
+        run: |
+          if [ -f results/gdp_sign_diagnostic.csv ]; then
+            echo "GDP sign diagnostic:"
+            cat results/gdp_sign_diagnostic.csv
+          fi
+          if [ -f results/gpr_impact_diagnostic.csv ]; then
+            echo "GPR impact diagnostic:"
+            cat results/gpr_impact_diagnostic.csv
+          fi
+
+      - name: Upload structural results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tvp-gvar-14e-structural-gpr-results
+          path: |
+            results/
+            data/model_input.csv
+            data/model_input_structural.csv
+            data/trade_weights.csv
+          if-no-files-found: warn
+          retention-days: 30
