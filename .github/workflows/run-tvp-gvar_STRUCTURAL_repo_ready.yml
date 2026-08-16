@@ -1,14 +1,14 @@
-name: Run 14-Economy Structural Global GPR TVP-GVAR
+name: Run 14-Economy Structural GPR Stability Grid
 
 on:
   workflow_dispatch:
     inputs:
       saves:
-        description: "Posterior saves (100 for smoke test; increase for paper run)"
+        description: "Posterior saves per grid cell (100 for smoke test)"
         required: true
         default: "100"
       burns:
-        description: "Burn-in draws (100 for smoke test; increase for paper run)"
+        description: "Burn-in draws per grid cell (100 for smoke test)"
         required: true
         default: "100"
       thin:
@@ -44,13 +44,39 @@ on:
 
 jobs:
   estimate:
+    name: Stability ${{ matrix.profile }}
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - profile: A_baseline
+            b1: "3"
+            b2: "0.03"
+            kappa0: "-0.005"
+          - profile: B_mild
+            b1: "4"
+            b2: "0.02"
+            kappa0: "-0.005"
+          - profile: C_medium
+            b1: "5"
+            b2: "0.015"
+            kappa0: "-0.005"
+          - profile: D_strong
+            b1: "8"
+            b2: "0.01"
+            kappa0: "-0.005"
 
     env:
       TVPGVAR_MACRO_XLSX: "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
       TVPGVAR_WEIGHT_XLSX: "8.12/Trade_Weights_14_Economies_2000_2012(2).xlsx"
       TVPGVAR_GPR_CSV: "8.12/gpr_quarterly_processed.csv"
+      TVPGVAR_PROFILE: ${{ matrix.profile }}
+      TVPGVAR_B1: ${{ matrix.b1 }}
+      TVPGVAR_B2: ${{ matrix.b2 }}
+      TVPGVAR_KAPPA0: ${{ matrix.kappa0 }}
 
     steps:
       - name: Checkout repository
@@ -127,7 +153,30 @@ jobs:
           print([c for c in cols if c.startswith('US_')])
           PY
 
-      - name: Run structural TVP-GVAR
+      - name: Apply stability-grid prior
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          p = Path("8.12/run_gpr_tvp_gvar_structural.R")
+          text = p.read_text(encoding="utf-8")
+          pattern = r"shrink\.parm\s*<-\s*list\(B_1\s*=\s*3,\s*B_2\s*=\s*0\.03,\s*kappa0\s*=\s*-0\.1/20\)"
+          replacement = (
+              "shrink.parm <- list(B_1 = " + os.environ["TVPGVAR_B1"] +
+              ", B_2 = " + os.environ["TVPGVAR_B2"] +
+              ", kappa0 = " + os.environ["TVPGVAR_KAPPA0"] + ")"
+          )
+          patched, n = re.subn(pattern, replacement, text, count=1)
+          if n != 1:
+              raise SystemExit(f"Expected exactly one shrink.parm baseline line, found {n}")
+          p.write_text(patched, encoding="utf-8")
+          print(os.environ["TVPGVAR_PROFILE"], replacement)
+          PY
+          grep -n "shrink.parm" "8.12/run_gpr_tvp_gvar_structural.R" | head
+
+      - name: Run structural TVP-GVAR stability cell
         env:
           TVPGVAR_SAVES: ${{ inputs.saves }}
           TVPGVAR_BURNS: ${{ inputs.burns }}
@@ -137,31 +186,223 @@ jobs:
           TVPGVAR_GPR_LAG_MODE: ${{ inputs.gpr_lag_mode }}
         run: Rscript "8.12/run_gpr_tvp_gvar_structural.R"
 
-      - name: Show model diagnostics
+      - name: Record grid-cell parameters
+        if: always()
+        env:
+          GRID_SAVES: ${{ inputs.saves }}
+          GRID_BURNS: ${{ inputs.burns }}
+          GRID_THIN: ${{ inputs.thin }}
+          GRID_GPR_LAG_MODE: ${{ inputs.gpr_lag_mode }}
+        run: |
+          mkdir -p results
+          python - <<'PY'
+          import csv
+          import os
+          with open("results/stability_profile_parameters.csv", "w", newline="", encoding="utf-8") as f:
+              w = csv.DictWriter(f, fieldnames=[
+                  "profile", "B_1", "B_2", "kappa0", "saves", "burns", "thin", "gpr_lag_mode"
+              ])
+              w.writeheader()
+              w.writerow({
+                  "profile": os.environ["TVPGVAR_PROFILE"],
+                  "B_1": os.environ["TVPGVAR_B1"],
+                  "B_2": os.environ["TVPGVAR_B2"],
+                  "kappa0": os.environ["TVPGVAR_KAPPA0"],
+                  "saves": os.environ.get("GRID_SAVES", ""),
+                  "burns": os.environ.get("GRID_BURNS", ""),
+                  "thin": os.environ.get("GRID_THIN", ""),
+                  "gpr_lag_mode": os.environ.get("GRID_GPR_LAG_MODE", "")
+              })
+          PY
+
+      - name: Show stability diagnostics
         if: always()
         run: |
-          if [ -f results/gpr_lag_spec_diagnostic.csv ]; then
-            echo "GPR lag specification diagnostic:"
-            cat results/gpr_lag_spec_diagnostic.csv
+          echo "Profile: $TVPGVAR_PROFILE  B_1=$TVPGVAR_B1  B_2=$TVPGVAR_B2  kappa0=$TVPGVAR_KAPPA0"
+          if [ -f results/run_structural_summary.txt ]; then
+            cat results/run_structural_summary.txt
           fi
-          if [ -f results/gdp_sign_diagnostic.csv ]; then
-            echo "GDP sign diagnostic:"
-            cat results/gdp_sign_diagnostic.csv
+          if [ -f results/local_stability_summary_by_country.csv ]; then
+            echo "Local stability:"
+            cat results/local_stability_summary_by_country.csv
           fi
-          if [ -f results/gpr_shock_validation.csv ]; then
-            echo "GPR shock validation:"
-            head -n 8 results/gpr_shock_validation.csv
+          if [ -f results/stability_summary_selected_dates.csv ]; then
+            echo "Selected-date stability:"
+            cat results/stability_summary_selected_dates.csv
           fi
 
-      - name: Upload structural results
+      - name: Upload stability cell
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tvp-gvar-14e-structural-gpr-results-${{ inputs.gpr_lag_mode }}
+          name: tvp-gvar-stability-${{ matrix.profile }}
           path: |
             results/
             data/model_input.csv
             data/model_input_structural.csv
             data/trade_weights.csv
           if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    name: Aggregate stability grid
+    needs: estimate
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download grid-cell artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tvp-gvar-stability-*
+          path: grid-artifacts
+
+      - name: Build stability comparison tables
+        run: |
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+
+          root = Path("grid-artifacts")
+          param_files = sorted(root.glob("*/results/stability_profile_parameters.csv"))
+          if not param_files:
+              raise SystemExit("No completed stability-grid artifacts were found.")
+
+          def read_csv(path):
+              with path.open(newline="", encoding="utf-8-sig") as f:
+                  return list(csv.DictReader(f))
+
+          def as_float(x):
+              try:
+                  return float(x)
+              except (TypeError, ValueError):
+                  return float("nan")
+
+          def truthy(x):
+              return str(x).strip().upper() in {"TRUE", "T", "1", "YES"}
+
+          comparison = []
+          selected_all = []
+
+          for pf in param_files:
+              res = pf.parent
+              params = read_csv(pf)[0]
+              profile = params["profile"]
+
+              required = [
+                  res / "stability_summary_by_date.csv",
+                  res / "local_stability_summary_by_country.csv",
+                  res / "residual_serial_correlation_diagnostic.csv"
+              ]
+              if not all(p.exists() for p in required):
+                  print(f"Skipping incomplete profile {profile}")
+                  continue
+
+              stab = read_csv(required[0])
+              stable_draws = sum(as_float(r["stable_draws"]) for r in stab)
+              draws = sum(as_float(r["draws"]) for r in stab)
+              global_stable = stable_draws / draws if draws else float("nan")
+              date_shares = [as_float(r["stable_share"]) for r in stab]
+
+              local_rows = read_csv(required[1])
+              local = {r["country"]: as_float(r["stable_share"]) for r in local_rows}
+              worst = min(local_rows, key=lambda r: as_float(r["stable_share"]))
+
+              serial = read_csv(required[2])
+              r_tests = [r for r in serial if r.get("variable", "").endswith("_r")]
+              r_reject = (
+                  sum(truthy(r.get("reject_5pct")) for r in r_tests) / len(r_tests)
+                  if r_tests else float("nan")
+              )
+
+              source_file = res / "stability_source_summary.csv"
+              dominant_source = ""
+              dominant_source_share = float("nan")
+              if source_file.exists():
+                  src = read_csv(source_file)
+                  if src:
+                      top = max(src, key=lambda r: as_float(r["share"]))
+                      dominant_source = top.get("likely_source", "")
+                      dominant_source_share = as_float(top.get("share"))
+
+              comparison.append({
+                  "profile": profile,
+                  "B_1": params["B_1"],
+                  "B_2": params["B_2"],
+                  "kappa0": params["kappa0"],
+                  "global_stable_share": global_stable,
+                  "min_date_stable_share": min(date_shares) if date_shares else float("nan"),
+                  "US_stable_share": local.get("US", float("nan")),
+                  "EA_stable_share": local.get("EA", float("nan")),
+                  "JP_stable_share": local.get("JP", float("nan")),
+                  "CH_stable_share": local.get("CH", float("nan")),
+                  "worst_local_country": worst.get("country", ""),
+                  "worst_local_stable_share": as_float(worst.get("stable_share")),
+                  "r_LjungBox_rejection_share": r_reject,
+                  "dominant_instability_source": dominant_source,
+                  "dominant_instability_source_share": dominant_source_share
+              })
+
+              sel_file = res / "stability_summary_selected_dates.csv"
+              if sel_file.exists():
+                  for r in read_csv(sel_file):
+                      selected_all.append({
+                          "profile": profile,
+                          "B_1": params["B_1"],
+                          "B_2": params["B_2"],
+                          "kappa0": params["kappa0"],
+                          **r
+                      })
+
+          if not comparison:
+              raise SystemExit("All stability-grid profiles were incomplete.")
+
+          comparison.sort(key=lambda r: r["global_stable_share"], reverse=True)
+          out = Path("stability-grid-summary")
+          out.mkdir(parents=True, exist_ok=True)
+
+          with (out / "stability_grid_comparison.csv").open("w", newline="", encoding="utf-8") as f:
+              w = csv.DictWriter(f, fieldnames=list(comparison[0].keys()))
+              w.writeheader()
+              w.writerows(comparison)
+
+          if selected_all:
+              fieldnames = list(selected_all[0].keys())
+              with (out / "stability_grid_selected_dates.csv").open("w", newline="", encoding="utf-8") as f:
+                  w = csv.DictWriter(f, fieldnames=fieldnames)
+                  w.writeheader()
+                  w.writerows(selected_all)
+
+          with (out / "stability_grid_readme.txt").open("w", encoding="utf-8") as f:
+              f.write("TVP-GVAR stability repair grid\n")
+              f.write("A: baseline B_1=3, B_2=0.03, kappa0=-0.005\n")
+              f.write("B: mild shrinkage B_1=4, B_2=0.02, kappa0=-0.005\n")
+              f.write("C: medium shrinkage B_1=5, B_2=0.015, kappa0=-0.005\n")
+              f.write("D: strong shrinkage B_1=8, B_2=0.01, kappa0=-0.005\n")
+              f.write("Primary ranking metric: overall global stable share.\n")
+              f.write("Secondary checks: US/EA/JP/CH local stability and interest-rate Ljung-Box rejection share.\n")
+
+          print("\nStability grid ranking:")
+          for r in comparison:
+              print(r["profile"], "global stable=", round(r["global_stable_share"], 4),
+                    "US=", round(r["US_stable_share"], 4),
+                    "EA=", round(r["EA_stable_share"], 4),
+                    "JP=", round(r["JP_stable_share"], 4),
+                    "CH=", round(r["CH_stable_share"], 4),
+                    "r reject=", round(r["r_LjungBox_rejection_share"], 4))
+          PY
+
+      - name: Show comparison table
+        run: |
+          cat stability-grid-summary/stability_grid_comparison.csv
+          if [ -f stability-grid-summary/stability_grid_selected_dates.csv ]; then
+            echo "Selected dates:"
+            cat stability-grid-summary/stability_grid_selected_dates.csv
+          fi
+
+      - name: Upload stability-grid comparison
+        uses: actions/upload-artifact@v4
+        with:
+          name: tvp-gvar-stability-grid-comparison
+          path: stability-grid-summary/
+          if-no-files-found: error
           retention-days: 30
