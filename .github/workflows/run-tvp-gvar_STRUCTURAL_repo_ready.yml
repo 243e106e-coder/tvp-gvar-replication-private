@@ -1,0 +1,558 @@
+name: Run 14-Economy Structural GPR Reproducibility Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      saves:
+        description: "Posterior saves per reproducibility cell"
+        required: true
+        default: "100"
+      burns:
+        description: "Burn-in draws per reproducibility cell"
+        required: true
+        default: "100"
+      thin:
+        description: "Fraction of saves retained for IRF calculations"
+        required: true
+        default: "0.5"
+      horizon:
+        description: "IRF horizon in quarters"
+        required: true
+        default: "12"
+      shock_pct:
+        description: "Impact increase in global GPR, percent"
+        required: true
+        default: "10"
+      gpr_column:
+        description: "GPR transform"
+        required: true
+        default: "LN_GPR_QMEAN"
+        type: choice
+        options:
+          - LN_GPR_QMEAN
+          - LN_GPR_QMAX
+          - LN_GPRT_QMEAN
+          - LN_GPRA_QMEAN
+      gpr_lag_mode:
+        description: "Non-US direct GPR lag specification"
+        required: true
+        default: "current_only"
+        type: choice
+        options:
+          - current_only
+          - current_and_lag
+
+jobs:
+  estimate:
+    name: Repro ${{ matrix.profile }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        include:
+          - profile: A1_same
+            seed: "20260816"
+          - profile: A2_same
+            seed: "20260816"
+          - profile: A3_seed2
+            seed: "20260817"
+          - profile: A4_seed3
+            seed: "20260818"
+
+    env:
+      TVPGVAR_MACRO_XLSX: "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+      TVPGVAR_WEIGHT_FILE: "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+      TVPGVAR_GPR_CSV: "8.12/gpr_quarterly_processed.csv"
+
+      # Freeze the best prior from the previous A/B/C/D grid.
+      TVPGVAR_B1: "3"
+      TVPGVAR_B2: "0.03"
+      TVPGVAR_KAPPA0: "-0.005"
+
+      TVPGVAR_PROFILE: ${{ matrix.profile }}
+      TVPGVAR_SEED: ${{ matrix.seed }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install R packages
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::remotes
+            any::readxl
+            any::snowfall
+            any::zoo
+            any::Matrix
+            any::mvtnorm
+            any::coda
+            any::bayesm
+            any::psych
+            any::MCMCpack
+            any::mnormt
+            any::rARPACK
+            any::ggplot2
+            any::GIGrvg
+            any::dlm
+            any::Rcpp
+            any::RcppArmadillo
+
+      - name: Install compatible stochvol
+        run: Rscript -e 'remotes::install_version("stochvol", version="3.2.9", repos="https://cloud.r-project.org", upgrade="never")'
+
+      - name: Patch and install threshtvp
+        run: |
+          sed -i 's|inv_f=solve(f.t(),Vtt.t(), "std").t();|inv_f=solve(arma::mat(f.t()),arma::mat(Vtt.t()), "std").t();|' threshtvp_source/src/threshold_functions.cpp
+          grep -n "inv_f=solve" threshtvp_source/src/threshold_functions.cpp
+          R CMD INSTALL threshtvp_source
+
+      - name: Activate structural helper code
+        run: |
+          cp "8.12/prepare_data_structural.R" "R/prepare_data_structural.R"
+          cp "8.12/gpr_structural_irf.R" "R/gpr_structural_irf.R"
+          test -f "8.12/patch_BVAR_gpr_lag.R"
+          test -f "8.12/run_gpr_tvp_gvar_structural.R"
+          test -f "$TVPGVAR_GPR_CSV"
+          test -f "$TVPGVAR_MACRO_XLSX"
+          test -f "$TVPGVAR_WEIGHT_FILE"
+
+      - name: Create GPR-lag-aware BVAR estimator
+        run: |
+          Rscript "8.12/patch_BVAR_gpr_lag.R"
+          test -f "R/BVAR_ttvp_gprlag.r"
+          grep -n "tvpgvar_wex_lag" "R/BVAR_ttvp_gprlag.r" | head
+
+      - name: Build structural 14-economy input
+        env:
+          TVPGVAR_GPR_COLUMN: ${{ inputs.gpr_column }}
+        run: Rscript "8.12/02_build_14e_input_structural.R"
+
+      - name: Show structural input diagnostics
+        run: |
+          cat results/build_structural_input_summary.txt
+          echo "model_input columns:"
+          head -n 1 data/model_input.csv
+          echo "US block columns:"
+          python - <<'PY'
+          import csv
+          with open('data/model_input.csv', newline='', encoding='utf-8') as f:
+              cols = next(csv.reader(f))
+          print([c for c in cols if c.startswith('US_')])
+          PY
+
+      - name: Freeze baseline prior
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          p = Path("8.12/run_gpr_tvp_gvar_structural.R")
+          text = p.read_text(encoding="utf-8")
+
+          pattern = r"shrink\.parm\s*<-\s*list\(B_1\s*=\s*3,\s*B_2\s*=\s*0\.03,\s*kappa0\s*=\s*-0\.1/20\)"
+          replacement = (
+              "shrink.parm <- list(B_1 = " + os.environ["TVPGVAR_B1"] +
+              ", B_2 = " + os.environ["TVPGVAR_B2"] +
+              ", kappa0 = " + os.environ["TVPGVAR_KAPPA0"] + ")"
+          )
+          text, n = re.subn(pattern, replacement, text, count=1)
+          if n != 1:
+              raise SystemExit(f"Expected exactly one baseline shrink.parm line, found {n}")
+
+          p.write_text(text, encoding="utf-8")
+          print(replacement)
+          PY
+          grep -n "shrink.parm" "8.12/run_gpr_tvp_gvar_structural.R" | head
+
+      - name: Patch deterministic RNG streams
+        run: |
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          p = Path("8.12/run_gpr_tvp_gvar_structural.R")
+          text = p.read_text(encoding="utf-8")
+
+          # 1) Replace hard-coded master seed with an environment-controlled seed.
+          old_seed = "set.seed(20260816)"
+          new_seed = '''seed <- as.integer(Sys.getenv("TVPGVAR_SEED", "20260816"))
+          if (is.na(seed)) stop("TVPGVAR_SEED must be an integer.")
+          RNGkind("L'Ecuyer-CMRG")
+          set.seed(seed)'''
+          if old_seed not in text:
+              raise SystemExit("Hard-coded seed line not found.")
+          text = text.replace(old_seed, new_seed, 1)
+
+          # 2) Build one deterministic L'Ecuyer stream per country.
+          marker = "BVAR <- cmpfun(BVAR)"
+          stream_block = '''# Deterministic independent RNG stream for each country.
+          rng_streams <- vector("list", length(cN))
+          rng_streams[[1L]] <- .Random.seed
+          if (length(cN) > 1L) {
+            for (ii in 2:length(cN)) {
+              rng_streams[[ii]] <- parallel::nextRNGStream(rng_streams[[ii - 1L]])
+            }
+          }
+
+          BVAR <- cmpfun(BVAR)'''
+          if marker not in text:
+              raise SystemExit("BVAR compilation marker not found.")
+          text = text.replace(marker, stream_block, 1)
+
+          # 3) Export streams to workers.
+          old_export = '"gpr_lag_mode", "tvpgvar_wex_lag"'
+          new_export = '"gpr_lag_mode", "tvpgvar_wex_lag", "rng_streams"'
+          if old_export not in text:
+              raise SystemExit("sfExport marker not found.")
+          text = text.replace(old_export, new_export, 1)
+
+          # 4) Assign the stream by country index inside each worker task.
+          pattern = r'predDens\s*<-\s*sfLapply\(seq_along\(cN\),\s*function\(i\)\s*\{\s*BVAR\(i,'
+          repl = 'predDens <- sfLapply(seq_along(cN), function(i) {\n  assign(".Random.seed", rng_streams[[i]], envir = .GlobalEnv)\n  BVAR(i,'
+          text, n = re.subn(pattern, repl, text, count=1)
+          if n != 1:
+              raise SystemExit("sfLapply/BVAR block not found.")
+
+          p.write_text(text, encoding="utf-8")
+          PY
+
+          echo "Patched seed:"
+          sed -n '1,16p' "8.12/run_gpr_tvp_gvar_structural.R"
+          echo "Patched RNG stream block:"
+          grep -n -A12 -B2 "rng_streams" "8.12/run_gpr_tvp_gvar_structural.R" | head -n 40
+
+      - name: Run structural TVP-GVAR reproducibility cell
+        env:
+          TVPGVAR_SAVES: ${{ inputs.saves }}
+          TVPGVAR_BURNS: ${{ inputs.burns }}
+          TVPGVAR_THIN: ${{ inputs.thin }}
+          TVPGVAR_HORIZON: ${{ inputs.horizon }}
+          TVPGVAR_GPR_SHOCK_PCT: ${{ inputs.shock_pct }}
+          TVPGVAR_GPR_LAG_MODE: ${{ inputs.gpr_lag_mode }}
+        run: Rscript "8.12/run_gpr_tvp_gvar_structural.R"
+
+      - name: Record reproducibility parameters
+        if: always()
+        env:
+          GRID_SAVES: ${{ inputs.saves }}
+          GRID_BURNS: ${{ inputs.burns }}
+          GRID_THIN: ${{ inputs.thin }}
+          GRID_GPR_LAG_MODE: ${{ inputs.gpr_lag_mode }}
+        run: |
+          mkdir -p results
+          python - <<'PY'
+          import csv
+          import os
+
+          with open("results/reproducibility_profile_parameters.csv", "w", newline="", encoding="utf-8") as f:
+              w = csv.DictWriter(f, fieldnames=[
+                  "profile", "seed", "B_1", "B_2", "kappa0",
+                  "saves", "burns", "thin", "gpr_lag_mode"
+              ])
+              w.writeheader()
+              w.writerow({
+                  "profile": os.environ["TVPGVAR_PROFILE"],
+                  "seed": os.environ["TVPGVAR_SEED"],
+                  "B_1": os.environ["TVPGVAR_B1"],
+                  "B_2": os.environ["TVPGVAR_B2"],
+                  "kappa0": os.environ["TVPGVAR_KAPPA0"],
+                  "saves": os.environ.get("GRID_SAVES", ""),
+                  "burns": os.environ.get("GRID_BURNS", ""),
+                  "thin": os.environ.get("GRID_THIN", ""),
+                  "gpr_lag_mode": os.environ.get("GRID_GPR_LAG_MODE", "")
+              })
+          PY
+
+      - name: Show reproducibility diagnostics
+        if: always()
+        run: |
+          echo "Profile=$TVPGVAR_PROFILE Seed=$TVPGVAR_SEED"
+          echo "Prior: B_1=$TVPGVAR_B1 B_2=$TVPGVAR_B2 kappa0=$TVPGVAR_KAPPA0"
+          if [ -f results/run_structural_summary.txt ]; then
+            cat results/run_structural_summary.txt
+          fi
+          if [ -f results/local_stability_summary_by_country.csv ]; then
+            echo "Local stability:"
+            cat results/local_stability_summary_by_country.csv
+          fi
+          if [ -f results/stability_summary_selected_dates.csv ]; then
+            echo "Selected-date stability:"
+            cat results/stability_summary_selected_dates.csv
+          fi
+
+      - name: Upload reproducibility cell
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tvp-gvar-repro-${{ matrix.profile }}
+          path: |
+            results/
+            data/model_input.csv
+            data/model_input_structural.csv
+            data/trade_weights.csv
+          if-no-files-found: warn
+          retention-days: 30
+
+  aggregate:
+    name: Aggregate reproducibility test
+    needs: estimate
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download reproducibility artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: tvp-gvar-repro-*
+          path: repro-artifacts
+
+      - name: Build reproducibility comparison
+        run: |
+          python - <<'PY'
+          import csv
+          import hashlib
+          import math
+          from pathlib import Path
+
+          root = Path("repro-artifacts")
+          param_files = sorted(root.glob("*/results/reproducibility_profile_parameters.csv"))
+          if not param_files:
+              raise SystemExit("No reproducibility artifacts found.")
+
+          def read_csv(path):
+              with path.open(newline="", encoding="utf-8-sig") as f:
+                  return list(csv.DictReader(f))
+
+          def as_float(x):
+              try:
+                  return float(x)
+              except (TypeError, ValueError):
+                  return float("nan")
+
+          def truthy(x):
+              return str(x).strip().upper() in {"TRUE", "T", "1", "YES"}
+
+          profiles = {}
+          comparison = []
+          selected_all = []
+
+          for pf in param_files:
+              res = pf.parent
+              params = read_csv(pf)[0]
+              profile = params["profile"]
+              profiles[profile] = res
+
+              required = [
+                  res / "stability_summary_by_date.csv",
+                  res / "local_stability_summary_by_country.csv",
+                  res / "residual_serial_correlation_diagnostic.csv",
+              ]
+              if not all(p.exists() for p in required):
+                  print(f"Skipping incomplete profile {profile}")
+                  continue
+
+              stab = read_csv(required[0])
+              stable_draws = sum(as_float(r["stable_draws"]) for r in stab)
+              draws = sum(as_float(r["draws"]) for r in stab)
+              global_stable = stable_draws / draws if draws else float("nan")
+              date_shares = [as_float(r["stable_share"]) for r in stab]
+
+              local_rows = read_csv(required[1])
+              local = {r["country"]: as_float(r["stable_share"]) for r in local_rows}
+              worst = min(local_rows, key=lambda r: as_float(r["stable_share"]))
+
+              serial = read_csv(required[2])
+              r_tests = [r for r in serial if r.get("variable", "").endswith("_r")]
+              r_reject = (
+                  sum(truthy(r.get("reject_5pct")) for r in r_tests) / len(r_tests)
+                  if r_tests else float("nan")
+              )
+
+              source_file = res / "stability_source_summary.csv"
+              dominant_source = ""
+              dominant_source_share = float("nan")
+              if source_file.exists():
+                  src = read_csv(source_file)
+                  if src:
+                      top = max(src, key=lambda r: as_float(r["share"]))
+                      dominant_source = top.get("likely_source", "")
+                      dominant_source_share = as_float(top.get("share"))
+
+              comparison.append({
+                  "profile": profile,
+                  "seed": params["seed"],
+                  "B_1": params["B_1"],
+                  "B_2": params["B_2"],
+                  "kappa0": params["kappa0"],
+                  "global_stable_share": global_stable,
+                  "min_date_stable_share": min(date_shares) if date_shares else float("nan"),
+                  "US_stable_share": local.get("US", float("nan")),
+                  "EA_stable_share": local.get("EA", float("nan")),
+                  "JP_stable_share": local.get("JP", float("nan")),
+                  "CH_stable_share": local.get("CH", float("nan")),
+                  "worst_local_country": worst.get("country", ""),
+                  "worst_local_stable_share": as_float(worst.get("stable_share")),
+                  "r_LjungBox_rejection_share": r_reject,
+                  "dominant_instability_source": dominant_source,
+                  "dominant_instability_source_share": dominant_source_share,
+              })
+
+              sel_file = res / "stability_summary_selected_dates.csv"
+              if sel_file.exists():
+                  for row in read_csv(sel_file):
+                      selected_all.append({
+                          "profile": profile,
+                          "seed": params["seed"],
+                          **row,
+                      })
+
+          if not comparison:
+              raise SystemExit("All reproducibility profiles were incomplete.")
+
+          out = Path("reproducibility-summary")
+          out.mkdir(parents=True, exist_ok=True)
+
+          order = {"A1_same": 1, "A2_same": 2, "A3_seed2": 3, "A4_seed3": 4}
+          comparison.sort(key=lambda r: order.get(r["profile"], 99))
+
+          with (out / "reproducibility_comparison.csv").open("w", newline="", encoding="utf-8") as f:
+              w = csv.DictWriter(f, fieldnames=list(comparison[0].keys()))
+              w.writeheader()
+              w.writerows(comparison)
+
+          if selected_all:
+              selected_all.sort(key=lambda r: (order.get(r["profile"], 99), r.get("date", "")))
+              with (out / "reproducibility_selected_dates.csv").open("w", newline="", encoding="utf-8") as f:
+                  w = csv.DictWriter(f, fieldnames=list(selected_all[0].keys()))
+                  w.writeheader()
+                  w.writerows(selected_all)
+
+          # Exact byte-for-byte same-seed audit on all shared result CSV files,
+          # excluding the parameter file because profile names differ by design.
+          a1 = profiles.get("A1_same")
+          a2 = profiles.get("A2_same")
+          hash_rows = []
+          exact_all = False
+
+          if a1 and a2:
+              a1_files = {p.name: p for p in a1.glob("*.csv")}
+              a2_files = {p.name: p for p in a2.glob("*.csv")}
+              common = sorted(
+                  (set(a1_files) & set(a2_files))
+                  - {"reproducibility_profile_parameters.csv"}
+              )
+
+              def sha256(path):
+                  h = hashlib.sha256()
+                  with path.open("rb") as f:
+                      for block in iter(lambda: f.read(1024 * 1024), b""):
+                          h.update(block)
+                  return h.hexdigest()
+
+              for name in common:
+                  h1 = sha256(a1_files[name])
+                  h2 = sha256(a2_files[name])
+                  hash_rows.append({
+                      "file": name,
+                      "A1_sha256": h1,
+                      "A2_sha256": h2,
+                      "exact_match": h1 == h2,
+                  })
+
+              exact_all = bool(hash_rows) and all(r["exact_match"] for r in hash_rows)
+
+              with (out / "same_seed_file_hashes.csv").open("w", newline="", encoding="utf-8") as f:
+                  w = csv.DictWriter(
+                      f,
+                      fieldnames=["file", "A1_sha256", "A2_sha256", "exact_match"]
+                  )
+                  w.writeheader()
+                  w.writerows(hash_rows)
+
+          vals = {
+              r["profile"]: as_float(r["global_stable_share"])
+              for r in comparison
+          }
+          seed_vals = [
+              vals.get("A1_same", float("nan")),
+              vals.get("A3_seed2", float("nan")),
+              vals.get("A4_seed3", float("nan")),
+          ]
+          seed_vals = [x for x in seed_vals if math.isfinite(x)]
+
+          if len(seed_vals) >= 2:
+              seed_range = max(seed_vals) - min(seed_vals)
+              seed_mean = sum(seed_vals) / len(seed_vals)
+          else:
+              seed_range = float("nan")
+              seed_mean = float("nan")
+
+          a1_val = vals.get("A1_same", float("nan"))
+          a2_val = vals.get("A2_same", float("nan"))
+          same_seed_metric_diff = (
+              abs(a1_val - a2_val)
+              if math.isfinite(a1_val) and math.isfinite(a2_val)
+              else float("nan")
+          )
+
+          verdict = [
+              "TVP-GVAR reproducibility audit",
+              "",
+              f"A1/A2 exact CSV match: {exact_all}",
+              f"A1/A2 global-stability absolute difference: {same_seed_metric_diff}",
+              f"Across-seed global-stability mean (A1/A3/A4): {seed_mean}",
+              f"Across-seed global-stability range (A1/A3/A4): {seed_range}",
+              "",
+              "Interpretation:",
+              "- If A1/A2 exact CSV match is TRUE, deterministic RNG control passed.",
+              "- If A1/A2 differs, fix RNG/reproducibility before any further model tuning.",
+              "- If A1/A2 matches but A1/A3/A4 vary materially, the smoke run has high Monte Carlo uncertainty.",
+              "- In that case, increase retained posterior draws before changing priors or lag structure.",
+          ]
+          (out / "reproducibility_verdict.txt").write_text("\n".join(verdict) + "\n", encoding="utf-8")
+
+          print("\nReproducibility comparison:")
+          for r in comparison:
+              print(
+                  r["profile"],
+                  "seed=", r["seed"],
+                  "global stable=", round(as_float(r["global_stable_share"]), 4),
+                  "US=", round(as_float(r["US_stable_share"]), 4),
+                  "EA=", round(as_float(r["EA_stable_share"]), 4),
+                  "JP=", round(as_float(r["JP_stable_share"]), 4),
+                  "CH=", round(as_float(r["CH_stable_share"]), 4),
+                  "r reject=", round(as_float(r["r_LjungBox_rejection_share"]), 4),
+              )
+
+          print("\nA1/A2 exact CSV match:", exact_all)
+          print("Across-seed global-stability range:", seed_range)
+          PY
+
+      - name: Show reproducibility verdict
+        run: |
+          cat reproducibility-summary/reproducibility_comparison.csv
+          echo
+          cat reproducibility-summary/reproducibility_verdict.txt
+          if [ -f reproducibility-summary/same_seed_file_hashes.csv ]; then
+            echo
+            cat reproducibility-summary/same_seed_file_hashes.csv
+          fi
+
+      - name: Upload reproducibility summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: tvp-gvar-reproducibility-summary
+          path: reproducibility-summary/
+          if-no-files-found: error
+          retention-days: 30
