@@ -1,0 +1,8 @@
+--- a/.github/workflows/run-tvp-gvar_P2_STABILITY_GRID.yml
++++ b/.github/workflows/run-tvp-gvar_P2_STABILITY_GRID.yml
+@@
+-      TVPGVAR_WEIGHT_XLSX: "8.12/Trade_Weights_14_Economies_2000_2012(2).xlsx"
++      TVPGVAR_WEIGHT_FILE: "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+@@
+-          test -f "$TVPGVAR_WEIGHT_XLSX"
++          test -f "$TVPGVAR_WEIGHT_FILE"
