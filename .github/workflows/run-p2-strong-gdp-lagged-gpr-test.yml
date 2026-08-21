@@ -1,0 +1,308 @@
+name: Run P2 Strong GDP Lagged-GPR Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      saves:
+        description: "Posterior saves"
+        required: true
+        default: "500"
+      burns:
+        description: "Burn-in draws"
+        required: true
+        default: "500"
+      thin:
+        description: "Fraction of saves retained for IRF calculations"
+        required: true
+        default: "0.5"
+      horizon:
+        description: "IRF horizon in quarters"
+        required: true
+        default: "12"
+      shock_pct:
+        description: "Impact increase in global GPR, percent"
+        required: true
+        default: "10"
+      gpr_column:
+        description: "GPR transform"
+        required: true
+        default: "LN_GPR_QMEAN"
+        type: choice
+        options:
+          - LN_GPR_QMEAN
+          - LN_GPR_QMAX
+          - LN_GPRT_QMEAN
+          - LN_GPRA_QMEAN
+
+permissions:
+  contents: read
+
+jobs:
+  estimate:
+    name: P2_strong GDP lagged-GPR 500 test
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    env:
+      TVPGVAR_MACRO_XLSX: "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+      TVPGVAR_WEIGHT_FILE: "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+      TVPGVAR_GPR_CSV: "8.12/gpr_quarterly_processed.csv"
+      TVPGVAR_PROFILE: "P2_strong_GDP_lagged_GPR"
+      TVPGVAR_P: "2"
+      TVPGVAR_B1: "8"
+      TVPGVAR_B2: "0.01"
+      TVPGVAR_KAPPA0: "-0.005"
+      TVPGVAR_SEED: "20260816"
+      TVPGVAR_GPR_LAG_MODE: "gdp_lagged_only"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install R packages
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::remotes
+            any::readxl
+            any::snowfall
+            any::zoo
+            any::Matrix
+            any::mvtnorm
+            any::coda
+            any::bayesm
+            any::psych
+            any::MCMCpack
+            any::mnormt
+            any::rARPACK
+            any::ggplot2
+            any::GIGrvg
+            any::dlm
+            any::Rcpp
+            any::RcppArmadillo
+
+      - name: Install compatible stochvol
+        run: Rscript -e 'remotes::install_version("stochvol", version="3.2.9", repos="https://cloud.r-project.org", upgrade="never")'
+
+      - name: Patch and install threshtvp
+        run: |
+          sed -i 's|inv_f=solve(f.t(),Vtt.t(), "std").t();|inv_f=solve(arma::mat(f.t()),arma::mat(Vtt.t()), "std").t();|' threshtvp_source/src/threshold_functions.cpp
+          grep -n "inv_f=solve" threshtvp_source/src/threshold_functions.cpp
+          R CMD INSTALL threshtvp_source
+
+      - name: Activate structural helper code
+        run: |
+          cp "8.12/prepare_data_structural.R" "R/prepare_data_structural.R"
+          cp "8.12/gpr_structural_irf.R" "R/gpr_structural_irf.R"
+          test -f "8.12/patch_BVAR_gpr_lag.R"
+          test -f "8.12/patch_BVAR_gdp_gpr_timing.R"
+          test -f "8.12/run_gpr_tvp_gvar_structural.R"
+          test -f "$TVPGVAR_GPR_CSV"
+          test -f "$TVPGVAR_MACRO_XLSX"
+          test -f "$TVPGVAR_WEIGHT_FILE"
+
+      - name: Create P2 GPR-lag-aware estimator
+        run: |
+          Rscript --vanilla "8.12/patch_BVAR_gpr_lag.R"
+          test -f "R/BVAR_ttvp_gprlag.r"
+          grep -n "tvpgvar_wex_lag" "R/BVAR_ttvp_gprlag.r" | head
+          grep -n "tvpgvar_safe_inverse" "R/BVAR_ttvp_gprlag.r" | head
+
+      - name: Apply GDP lagged-GPR timing restriction
+        run: |
+          Rscript --vanilla "8.12/patch_BVAR_gdp_gpr_timing.R"
+          Rscript --vanilla -e 'parse(file="R/BVAR_ttvp_gprlag.r"); cat("Timing-restricted estimator parse OK\n")'
+          grep -n "gdp_lagged_only" "R/BVAR_ttvp_gprlag.r" | head -n 10
+          grep -n "drop_current_global_gpr\|drop_current_US_gpr\|drop_lag1_global_gpr" "R/BVAR_ttvp_gprlag.r" | head -n 20
+          if grep -nF "ginv(A0inv)" "R/BVAR_ttvp_gprlag.r"; then
+            echo "Broken ginv(A0inv) fallback is still present"
+            exit 1
+          fi
+
+      - name: Verify singular-matrix fallback
+        run: |
+          Rscript - <<'RS'
+          source("R/BVAR_ttvp_gprlag.r")
+          A <- matrix(c(1, 2, 2, 4), nrow = 2)
+          Ainv <- tvpgvar_safe_inverse(A, "workflow preflight")
+          stopifnot(is.matrix(Ainv), is.numeric(Ainv), all(is.finite(Ainv)))
+          cat("Singular-matrix generalized-inverse fallback passed.\n")
+          RS
+
+      - name: Patch structural runner for new timing mode and P2 strong prior
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          p = Path("8.12/run_gpr_tvp_gvar_structural.R")
+          text = p.read_text(encoding="utf-8")
+
+          old_mode = '''if (!gpr_lag_mode %in% c("current_only", "current_and_lag")) {
+            stop("TVPGVAR_GPR_LAG_MODE must be current_only or current_and_lag.")
+          }'''
+          new_mode = '''if (!gpr_lag_mode %in% c("current_only", "current_and_lag", "gdp_lagged_only")) {
+            stop("TVPGVAR_GPR_LAG_MODE must be current_only, current_and_lag, or gdp_lagged_only.")
+          }'''
+          if text.count(old_mode) != 1:
+              raise SystemExit(f"Expected one GPR mode validation block, found {text.count(old_mode)}")
+          text = text.replace(old_mode, new_mode, 1)
+
+          pattern = r"shrink\.parm\s*<-\s*list\(B_1\s*=\s*3,\s*B_2\s*=\s*0\.03,\s*kappa0\s*=\s*-0\.1/20\)"
+          replacement = (
+              "shrink.parm <- list(B_1 = " + os.environ["TVPGVAR_B1"] +
+              ", B_2 = " + os.environ["TVPGVAR_B2"] +
+              ", kappa0 = " + os.environ["TVPGVAR_KAPPA0"] + ")"
+          )
+          text, n = re.subn(pattern, replacement, text, count=1)
+          if n != 1:
+              raise SystemExit(f"Expected one shrink.parm baseline line, found {n}")
+
+          p.write_text(text, encoding="utf-8")
+          print("Runner patched for gdp_lagged_only and P2 strong prior.")
+          PY
+          Rscript --vanilla -e 'parse(file="8.12/run_gpr_tvp_gvar_structural.R"); cat("Structural runner parse OK\n")'
+          grep -n "gdp_lagged_only\|shrink.parm" "8.12/run_gpr_tvp_gvar_structural.R" | head -n 20
+
+      - name: Verify structural builder syntax
+        run: |
+          echo "===== checked-out commit ====="
+          git rev-parse HEAD
+          echo "===== R parse check ====="
+          Rscript --vanilla -e 'parse(file="8.12/02_build_14e_input_structural.R"); cat("Builder parse OK\n")'
+
+      - name: Build structural 14-economy input
+        env:
+          TVPGVAR_GPR_COLUMN: ${{ inputs.gpr_column }}
+        run: Rscript --vanilla "8.12/02_build_14e_input_structural.R"
+
+      - name: Record timing restriction specification
+        run: |
+          Rscript --vanilla - <<'RS'
+          dir.create("results", showWarnings = FALSE, recursive = TRUE)
+          countries <- c("AU","BR","CA","CH","CN","EA","UK","JP","KR","NO","SG","TR","US","ZA")
+          rows <- list()
+          k <- 0L
+          for (cc in countries) {
+            if (cc == "US") {
+              us_vars <- c("gpr","y","dp","r","de","deq")
+              for (vv in us_vars) {
+                k <- k + 1L
+                rows[[k]] <- data.frame(
+                  country = cc,
+                  equation = paste0(cc, "_", vv),
+                  current_GPR_direct = if (vv == "y") 0L else if (vv == "gpr") NA_integer_ else 1L,
+                  lagged_GPR_direct = if (vv == "y") 1L else NA_integer_,
+                  note = if (vv == "y") {
+                    "US_y excludes contemporaneous recursive US_gpr; p=2 endogenous GPR lags remain"
+                  } else if (vv == "gpr") {
+                    "GPR is the first US endogenous variable"
+                  } else {
+                    "Original recursive contemporaneous US_gpr channel retained"
+                  },
+                  stringsAsFactors = FALSE
+                )
+              }
+            } else {
+              for (vv in c("y","dp","r","de","deq")) {
+                k <- k + 1L
+                rows[[k]] <- data.frame(
+                  country = cc,
+                  equation = paste0(cc, "_", vv),
+                  current_GPR_direct = if (vv == "y") 0L else 1L,
+                  lagged_GPR_direct = if (vv == "y") 1L else 0L,
+                  note = if (vv == "y") {
+                    "GDP is slow-moving: current global GPR excluded; direct GPR lag 1 retained"
+                  } else {
+                    "Current global GPR retained; separate direct GPR lag 1 excluded"
+                  },
+                  stringsAsFactors = FALSE
+                )
+              }
+            }
+          }
+          spec <- do.call(rbind, rows)
+          write.csv(spec, "results/gpr_timing_restriction_spec.csv", row.names = FALSE)
+          print(spec)
+          RS
+
+      - name: Run P2 strong GDP lagged-GPR test
+        env:
+          TVPGVAR_SAVES: ${{ inputs.saves }}
+          TVPGVAR_BURNS: ${{ inputs.burns }}
+          TVPGVAR_THIN: ${{ inputs.thin }}
+          TVPGVAR_HORIZON: ${{ inputs.horizon }}
+          TVPGVAR_GPR_SHOCK_PCT: ${{ inputs.shock_pct }}
+        run: Rscript --vanilla "8.12/run_gpr_tvp_gvar_structural.R"
+
+      - name: Record test parameters
+        if: always()
+        env:
+          TEST_SAVES: ${{ inputs.saves }}
+          TEST_BURNS: ${{ inputs.burns }}
+          TEST_THIN: ${{ inputs.thin }}
+          TEST_HORIZON: ${{ inputs.horizon }}
+          TEST_SHOCK: ${{ inputs.shock_pct }}
+          TEST_GPR_COLUMN: ${{ inputs.gpr_column }}
+        run: |
+          mkdir -p results
+          python - <<'PY'
+          import csv, os
+          with open("results/gdp_lagged_gpr_test_parameters.csv", "w", newline="", encoding="utf-8") as f:
+              w = csv.DictWriter(f, fieldnames=[
+                  "profile", "p", "q", "seed", "B_1", "B_2", "kappa0",
+                  "saves", "burns", "thin", "horizon", "shock_pct",
+                  "gpr_column", "gpr_lag_mode", "trade_weight_file"
+              ])
+              w.writeheader()
+              w.writerow({
+                  "profile": os.environ["TVPGVAR_PROFILE"],
+                  "p": os.environ["TVPGVAR_P"],
+                  "q": "1",
+                  "seed": os.environ["TVPGVAR_SEED"],
+                  "B_1": os.environ["TVPGVAR_B1"],
+                  "B_2": os.environ["TVPGVAR_B2"],
+                  "kappa0": os.environ["TVPGVAR_KAPPA0"],
+                  "saves": os.environ.get("TEST_SAVES", ""),
+                  "burns": os.environ.get("TEST_BURNS", ""),
+                  "thin": os.environ.get("TEST_THIN", ""),
+                  "horizon": os.environ.get("TEST_HORIZON", ""),
+                  "shock_pct": os.environ.get("TEST_SHOCK", ""),
+                  "gpr_column": os.environ.get("TEST_GPR_COLUMN", ""),
+                  "gpr_lag_mode": os.environ["TVPGVAR_GPR_LAG_MODE"],
+                  "trade_weight_file": os.environ["TVPGVAR_WEIGHT_FILE"]
+              })
+          PY
+
+      - name: Show key diagnostics
+        if: always()
+        run: |
+          echo "Profile=$TVPGVAR_PROFILE p=$TVPGVAR_P q=1 B1=$TVPGVAR_B1 B2=$TVPGVAR_B2 kappa=$TVPGVAR_KAPPA0 mode=$TVPGVAR_GPR_LAG_MODE"
+          for f in \
+            results/run_structural_summary.txt \
+            results/stability_summary_selected_dates.csv \
+            results/local_stability_summary_by_country.csv \
+            results/gdp_sign_diagnostic_stable_only.csv \
+            results/us_local_coefficient_summary.csv; do
+            if [ -f "$f" ]; then
+              echo "===== $f ====="
+              head -n 80 "$f"
+            fi
+          done
+
+      - name: Upload P2 strong GDP lagged-GPR results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2-strong-gdp-lagged-gpr-${{ github.run_id }}
+          path: |
+            results/**
+          if-no-files-found: warn
+          retention-days: 30
