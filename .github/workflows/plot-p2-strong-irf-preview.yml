@@ -1,0 +1,85 @@
+name: Plot P2 Strong IRF Preview From Existing Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Existing workflow run containing the completed P2_strong artifact"
+        required: true
+        default: "32403057812"
+      preview_countries:
+        description: "Comma-separated countries for the quick-look overview"
+        required: true
+        default: "US,JP,CN,KR,EA,SG"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  plot-irf-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download existing P2_strong artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tvp-gvar-stability-v2-P2_strong
+          path: source-artifact
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.source_run_id }}
+
+      - name: Verify stable-only IRF files exist
+        run: |
+          echo "Source artifact contents (relevant files):"
+          find source-artifact -type f | grep -E \
+            'gpr_structural_irf_summary_stable_only|gpr_structural_cumulative_gdp_stable_only|stability_summary_selected_dates|stability_profile_parameters|gpr_shock_validation' \
+            | sort
+          test "$(find source-artifact -type f -name 'gpr_structural_irf_summary_stable_only.csv' | wc -l)" -eq 1
+          test "$(find source-artifact -type f -name 'gpr_structural_cumulative_gdp_stable_only.csv' | wc -l)" -eq 1
+          test "$(find source-artifact -type f -name 'stability_summary_selected_dates.csv' | wc -l)" -eq 1
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install plotting package
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::ggplot2
+
+      - name: Generate stable-only IRF preview figures
+        env:
+          TVPGVAR_IRF_SOURCE_DIR: source-artifact
+          TVPGVAR_IRF_PREVIEW_OUT: irf-preview
+          TVPGVAR_SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          TVPGVAR_SOURCE_ARTIFACT: tvp-gvar-stability-v2-P2_strong
+          TVPGVAR_PREVIEW_COUNTRIES: ${{ inputs.preview_countries }}
+        run: |
+          Rscript "8.12/plot_p2_strong_irf_preview.R"
+
+      - name: Show generated files
+        run: |
+          echo "===== Preview README ====="
+          cat irf-preview/IRF_PREVIEW_README.txt
+          echo
+          echo "===== Generated figures ====="
+          find irf-preview -type f -name '*.png' | sort
+          echo
+          echo "PNG count:"
+          find irf-preview -type f -name '*.png' | wc -l
+
+      - name: Upload IRF preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2-strong-irf-preview-${{ inputs.source_run_id }}
+          path: irf-preview/
+          if-no-files-found: error
+          retention-days: 30
