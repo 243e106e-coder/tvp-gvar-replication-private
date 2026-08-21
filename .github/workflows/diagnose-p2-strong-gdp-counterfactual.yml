@@ -1,0 +1,105 @@
+name: Diagnose P2 Strong GDP Counterfactual Channels
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Existing completed P2_strong run"
+        required: true
+        default: "32403057812"
+      dates:
+        description: "Diagnostic dates"
+        required: true
+        default: "2003Q1,2008Q3,2014Q3,2020Q1,2022Q1,2023Q4"
+      shock_pct:
+        description: "Positive global GPR shock (%)"
+        required: true
+        default: "10"
+      horizon:
+        description: "IRF horizon"
+        required: true
+        default: "12"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download existing P2_strong posterior artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tvp-gvar-stability-v2-P2_strong
+          path: source-artifact
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.source_run_id }}
+
+      - name: Verify required files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(find source-artifact -type f -name 'predDens_gpr_structural.rda' | wc -l)" -eq 1
+          test "$(find source-artifact -type f -name 'stability_profile_parameters.csv' | wc -l)" -eq 1
+          test "$(find source-artifact -type f -name 'stability_summary_selected_dates.csv' | wc -l)" -eq 1
+          find source-artifact -type f | grep -E \
+            'predDens_gpr_structural\.rda|stability_profile_parameters\.csv|stability_summary_selected_dates\.csv' \
+            | sort
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install plotting package
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::ggplot2
+
+      - name: Parse counterfactual diagnostic script
+        run: |
+          Rscript --vanilla -e 'parse(file="8.12/diagnose_p2_strong_gdp_counterfactual.R"); cat("Counterfactual script parse OK\n")'
+
+      - name: Run GDP counterfactual channel diagnostic
+        env:
+          TVPGVAR_CF_SOURCE_DIR: source-artifact
+          TVPGVAR_CF_OUT: gdp-counterfactual-diagnostic
+          TVPGVAR_CF_DATES: ${{ inputs.dates }}
+          TVPGVAR_CF_SHOCK_PCT: ${{ inputs.shock_pct }}
+          TVPGVAR_CF_HORIZON: ${{ inputs.horizon }}
+          TVPGVAR_NEAR_UNIT_THRESHOLD: "0.98"
+        run: |
+          Rscript --vanilla "8.12/diagnose_p2_strong_gdp_counterfactual.R"
+
+      - name: Show key results
+        run: |
+          echo "===== Original stability reconstruction ====="
+          cat gdp-counterfactual-diagnostic/01_stability_reconstruction_check.csv
+          echo
+          echo "===== Counterfactual stability ====="
+          cat gdp-counterfactual-diagnostic/02_counterfactual_stability_summary.csv
+          echo
+          echo "===== Positive-country share at h=0 ====="
+          cat gdp-counterfactual-diagnostic/06_GDP_h0_positive_country_share.csv
+          echo
+          echo "===== Channel sign-flip decision table ====="
+          cat gdp-counterfactual-diagnostic/08_channel_sign_flip_decision_table.csv
+          echo
+          echo "===== README ====="
+          cat gdp-counterfactual-diagnostic/README_counterfactual.txt
+
+      - name: Upload GDP counterfactual diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2-strong-gdp-counterfactual-${{ inputs.source_run_id }}
+          path: gdp-counterfactual-diagnostic/
+          if-no-files-found: error
+          retention-days: 30
