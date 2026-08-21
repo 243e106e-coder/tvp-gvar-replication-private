@@ -420,7 +420,7 @@ jobs:
           out = Path("stability-grid-summary")
           out.mkdir(parents=True, exist_ok=True)
 
-                   with (out / "stability_grid_comparison.csv").open("w", newline="", encoding="utf-8") as f:
+          with (out / "stability_grid_comparison.csv").open("w", newline="", encoding="utf-8") as f:
               w = csv.DictWriter(f, fieldnames=list(comparison[0].keys()))
               w.writeheader()
               w.writerows(comparison)
@@ -434,13 +434,15 @@ jobs:
 
           with (out / "stability_grid_readme.txt").open("w", encoding="utf-8") as f:
               f.write("TVP-GVAR P2 Stability Grid V2\n")
-              f.write("Specification: GVAR(2,1), with domestic lag order p=2 and foreign-variable lag order q=1.\n")
-              f.write("P2_baseline: p=2, q=1, B_1=3, B_2=0.03, kappa0=-0.005\n")
-              f.write("P2_medium: p=2, q=1, B_1=5, B_2=0.015, kappa0=-0.005\n")
-              f.write("P2_strong: p=2, q=1, B_1=8, B_2=0.01, kappa0=-0.005\n")
+              f.write("Parameters below are read from the completed grid-cell parameter files; lag orders are not hard-coded in this README.\n")
+              for r in sorted(comparison, key=lambda x: x["profile"]):
+                  f.write(
+                      f'{r["profile"]}: p={r["p"]}, q={r["q"]}, '
+                      f'B_1={r["B_1"]}, B_2={r["B_2"]}, kappa0={r["kappa0"]}\n'
+                  )
               f.write("Primary ranking metric: overall global stable share.\n")
               f.write("Secondary checks: local stability, interest-rate residual serial correlation, US short-rate dynamics, near-unit behavior, and selected-date stability.\n")
-              f.write("Note: this README describes the current P2 run only; historical P1/P2 reference runs are intentionally excluded to avoid mixing results across different specifications or weight matrices.\n")
+              f.write("Note: this README describes the current run only; historical reference runs are intentionally excluded to avoid mixing results across different specifications, samples, or weight matrices.\n")
 
           print("\nStability grid ranking:")
           for r in comparison:
