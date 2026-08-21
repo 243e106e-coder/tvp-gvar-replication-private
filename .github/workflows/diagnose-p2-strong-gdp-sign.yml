@@ -1,0 +1,91 @@
+name: Diagnose P2 Strong GDP Sign From Existing Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Existing completed P2_strong run"
+        required: true
+        default: "32403057812"
+      dates:
+        description: "Diagnostic dates"
+        required: true
+        default: "2003Q1,2008Q3,2014Q3,2020Q1,2022Q1,2023Q4"
+      shock_pct:
+        description: "Positive global GPR shock (%)"
+        required: true
+        default: "10"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download existing P2_strong posterior artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tvp-gvar-stability-v2-P2_strong
+          path: source-artifact
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.source_run_id }}
+
+      - name: Verify required files
+        run: |
+          test "$(find source-artifact -type f -name 'predDens_gpr_structural.rda' | wc -l)" -eq 1
+          test "$(find source-artifact -type f -name 'stability_profile_parameters.csv' | wc -l)" -eq 1
+          test "$(find source-artifact -type f -name 'stability_summary_selected_dates.csv' | wc -l)" -eq 1
+          find source-artifact -type f | grep -E \
+            'predDens_gpr_structural\.rda|stability_profile_parameters\.csv|stability_summary_selected_dates\.csv' \
+            | sort
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install plotting package
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::ggplot2
+
+      - name: Run GDP sign diagnostic
+        env:
+          TVPGVAR_GDP_DIAG_SOURCE_DIR: source-artifact
+          TVPGVAR_GDP_DIAG_OUT: gdp-sign-diagnostic
+          TVPGVAR_GDP_DIAG_DATES: ${{ inputs.dates }}
+          TVPGVAR_GDP_DIAG_SHOCK_PCT: ${{ inputs.shock_pct }}
+          TVPGVAR_NEAR_UNIT_THRESHOLD: "0.98"
+        run: |
+          Rscript "8.12/diagnose_p2_strong_gdp_sign.R"
+
+      - name: Show key results
+        run: |
+          echo "===== Stability reconstruction ====="
+          cat gdp-sign-diagnostic/01_stability_reconstruction_check.csv
+          echo
+          echo "===== US GPR-first direct GDP loading ====="
+          cat gdp-sign-diagnostic/05_US_GPRfirst_direct_GDP_loading.csv
+          echo
+          echo "===== Non-US positive direct GPR->GDP coefficient share ====="
+          cat gdp-sign-diagnostic/07_direct_GPR_GDP_positive_share.csv
+          echo
+          echo "===== h=0 decomposition ====="
+          cat gdp-sign-diagnostic/06_GDP_h0_source_decomposition.csv
+
+      - name: Upload GDP sign diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: p2-strong-gdp-sign-diagnostic-${{ inputs.source_run_id }}
+          path: gdp-sign-diagnostic/
+          if-no-files-found: error
+          retention-days: 30
