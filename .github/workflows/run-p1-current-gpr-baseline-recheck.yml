@@ -1,0 +1,308 @@
+name: Run P1 Current-GPR Baseline Recheck
+
+on:
+  workflow_dispatch:
+    inputs:
+      saves:
+        description: "Posterior saves"
+        required: true
+        default: "500"
+      burns:
+        description: "Burn-in draws"
+        required: true
+        default: "500"
+      thin:
+        description: "Fraction of saves retained for IRF calculations"
+        required: true
+        default: "0.5"
+      horizon:
+        description: "IRF horizon in quarters"
+        required: true
+        default: "12"
+      shock_pct:
+        description: "Impact increase in global GPR, percent"
+        required: true
+        default: "10"
+      gpr_column:
+        description: "GPR transform"
+        required: true
+        default: "LN_GPR_QMEAN"
+        type: choice
+        options:
+          - LN_GPR_QMEAN
+          - LN_GPR_QMAX
+          - LN_GPRT_QMEAN
+          - LN_GPRA_QMEAN
+
+permissions:
+  contents: read
+
+jobs:
+  estimate:
+    name: P1 baseline current-GPR recheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    env:
+      TVPGVAR_MACRO_XLSX: "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+      TVPGVAR_WEIGHT_FILE: "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+      TVPGVAR_GPR_CSV: "8.12/gpr_quarterly_processed.csv"
+
+      # Exact historical P1-baseline specification from the deleted P1 grid.
+      TVPGVAR_PROFILE: "P1_baseline_current_GPR_recheck"
+      TVPGVAR_P: "1"
+      TVPGVAR_B1: "3"
+      TVPGVAR_B2: "0.03"
+      TVPGVAR_KAPPA0: "-0.005"
+      TVPGVAR_SEED: "20260816"
+
+      # IMPORTANT: contemporaneous/current GPR, not GDP-lagged-only.
+      TVPGVAR_GPR_LAG_MODE: "current_only"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install R packages
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::remotes
+            any::readxl
+            any::snowfall
+            any::zoo
+            any::Matrix
+            any::mvtnorm
+            any::coda
+            any::bayesm
+            any::psych
+            any::MCMCpack
+            any::mnormt
+            any::rARPACK
+            any::ggplot2
+            any::GIGrvg
+            any::dlm
+            any::Rcpp
+            any::RcppArmadillo
+
+      - name: Install compatible stochvol
+        run: |
+          Rscript -e 'remotes::install_version("stochvol", version="3.2.9", repos="https://cloud.r-project.org", upgrade="never")'
+
+      - name: Patch and install threshtvp
+        run: |
+          set -euo pipefail
+          sed -i 's|inv_f=solve(f.t(),Vtt.t(), "std").t();|inv_f=solve(arma::mat(f.t()),arma::mat(Vtt.t()), "std").t();|' threshtvp_source/src/threshold_functions.cpp
+          grep -n "inv_f=solve" threshtvp_source/src/threshold_functions.cpp
+          R CMD INSTALL threshtvp_source
+
+      - name: Activate latest structural helper code
+        run: |
+          set -euo pipefail
+          cp "8.12/prepare_data_structural.R" "R/prepare_data_structural.R"
+          cp "8.12/gpr_structural_irf.R" "R/gpr_structural_irf.R"
+
+          test -f "8.12/patch_BVAR_gpr_lag.R"
+          test -f "8.12/run_gpr_tvp_gvar_structural.R"
+          test -f "8.12/02_build_14e_input_structural.R"
+          test -f "$TVPGVAR_GPR_CSV"
+          test -f "$TVPGVAR_MACRO_XLSX"
+          test -f "$TVPGVAR_WEIGHT_FILE"
+
+      - name: Create latest GPR-aware BVAR estimator
+        run: |
+          set -euo pipefail
+          Rscript --vanilla "8.12/patch_BVAR_gpr_lag.R"
+          test -f "R/BVAR_ttvp_gprlag.r"
+
+          grep -n "tvpgvar_wex_lag" "R/BVAR_ttvp_gprlag.r" | head
+          grep -n "tvpgvar_safe_inverse" "R/BVAR_ttvp_gprlag.r" | head
+
+          if grep -nF "ginv(A0inv)" "R/BVAR_ttvp_gprlag.r"; then
+            echo "Broken ginv(A0inv) fallback is still present"
+            exit 1
+          fi
+
+      - name: Verify singular-matrix fallback
+        run: |
+          Rscript --vanilla - <<'RS'
+          source("R/BVAR_ttvp_gprlag.r")
+          A <- matrix(c(1, 2, 2, 4), nrow = 2)
+          Ainv <- tvpgvar_safe_inverse(A, "workflow preflight")
+          stopifnot(
+            is.matrix(Ainv),
+            is.numeric(Ainv),
+            all(is.finite(Ainv))
+          )
+          cat("Singular-matrix generalized-inverse fallback passed.\n")
+          RS
+
+      # The checked-in runner currently has the original prior:
+      # B_1 = 3, B_2 = 0.03, kappa0 = -0.1/20.
+      # Patch from env anyway so the workflow records and enforces the intended specification.
+      - name: Patch structural runner to exact P1 baseline prior
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          p = Path("8.12/run_gpr_tvp_gvar_structural.R")
+          text = p.read_text(encoding="utf-8")
+
+          pattern = (
+              r"shrink\.parm\s*<-\s*list\("
+              r"B_1\s*=\s*3,\s*"
+              r"B_2\s*=\s*0\.03,\s*"
+              r"kappa0\s*=\s*-0\.1/20"
+              r"\)"
+          )
+
+          replacement = (
+              "shrink.parm <- list(B_1 = " + os.environ["TVPGVAR_B1"] +
+              ", B_2 = " + os.environ["TVPGVAR_B2"] +
+              ", kappa0 = " + os.environ["TVPGVAR_KAPPA0"] + ")"
+          )
+
+          text, n = re.subn(pattern, replacement, text, count=1)
+          if n != 1:
+              raise SystemExit(
+                  f"Expected exactly one shrink.parm baseline line; found {n}"
+              )
+
+          p.write_text(text, encoding="utf-8")
+          print("Runner patched to exact P1 baseline prior.")
+          PY
+
+          Rscript --vanilla -e 'parse(file="8.12/run_gpr_tvp_gvar_structural.R"); cat("Structural runner parse OK\n")'
+          grep -n "gpr_lag_mode\|lag_order\|shrink.parm" "8.12/run_gpr_tvp_gvar_structural.R" | head -n 20
+
+      - name: Verify P1 current-GPR specification
+        run: |
+          set -euo pipefail
+          echo "===== checked-out commit ====="
+          git rev-parse HEAD
+
+          echo "===== requested specification ====="
+          echo "profile=$TVPGVAR_PROFILE"
+          echo "p=$TVPGVAR_P"
+          echo "B1=$TVPGVAR_B1"
+          echo "B2=$TVPGVAR_B2"
+          echo "kappa0=$TVPGVAR_KAPPA0"
+          echo "GPR mode=$TVPGVAR_GPR_LAG_MODE"
+
+          test "$TVPGVAR_P" = "1"
+          test "$TVPGVAR_GPR_LAG_MODE" = "current_only"
+          test "$TVPGVAR_B1" = "3"
+          test "$TVPGVAR_B2" = "0.03"
+
+          Rscript --vanilla -e 'parse(file="8.12/02_build_14e_input_structural.R"); cat("Builder parse OK\n")'
+
+      - name: Build structural 14-economy input
+        env:
+          TVPGVAR_GPR_COLUMN: ${{ inputs.gpr_column }}
+        run: |
+          Rscript --vanilla "8.12/02_build_14e_input_structural.R"
+
+      - name: Run P1 baseline current-GPR model
+        env:
+          TVPGVAR_SAVES: ${{ inputs.saves }}
+          TVPGVAR_BURNS: ${{ inputs.burns }}
+          TVPGVAR_THIN: ${{ inputs.thin }}
+          TVPGVAR_HORIZON: ${{ inputs.horizon }}
+          TVPGVAR_GPR_SHOCK_PCT: ${{ inputs.shock_pct }}
+        run: |
+          Rscript --vanilla "8.12/run_gpr_tvp_gvar_structural.R"
+
+      - name: Record exact test parameters
+        if: always()
+        env:
+          TEST_SAVES: ${{ inputs.saves }}
+          TEST_BURNS: ${{ inputs.burns }}
+          TEST_THIN: ${{ inputs.thin }}
+          TEST_HORIZON: ${{ inputs.horizon }}
+          TEST_SHOCK: ${{ inputs.shock_pct }}
+          TEST_GPR_COLUMN: ${{ inputs.gpr_column }}
+        run: |
+          mkdir -p results
+          python - <<'PY'
+          import csv
+          import os
+
+          out = "results/p1_current_gpr_recheck_parameters.csv"
+          fields = [
+              "profile", "p", "q", "seed",
+              "B_1", "B_2", "kappa0",
+              "saves", "burns", "thin",
+              "horizon", "shock_pct",
+              "gpr_column", "gpr_lag_mode",
+              "trade_weight_file"
+          ]
+
+          row = {
+              "profile": os.environ["TVPGVAR_PROFILE"],
+              "p": os.environ["TVPGVAR_P"],
+              "q": "1",
+              "seed": os.environ["TVPGVAR_SEED"],
+              "B_1": os.environ["TVPGVAR_B1"],
+              "B_2": os.environ["TVPGVAR_B2"],
+              "kappa0": os.environ["TVPGVAR_KAPPA0"],
+              "saves": os.environ.get("TEST_SAVES", ""),
+              "burns": os.environ.get("TEST_BURNS", ""),
+              "thin": os.environ.get("TEST_THIN", ""),
+              "horizon": os.environ.get("TEST_HORIZON", ""),
+              "shock_pct": os.environ.get("TEST_SHOCK", ""),
+              "gpr_column": os.environ.get("TEST_GPR_COLUMN", ""),
+              "gpr_lag_mode": os.environ["TVPGVAR_GPR_LAG_MODE"],
+              "trade_weight_file": os.environ["TVPGVAR_WEIGHT_FILE"],
+          }
+
+          with open(out, "w", newline="", encoding="utf-8") as f:
+              w = csv.DictWriter(f, fieldnames=fields)
+              w.writeheader()
+              w.writerow(row)
+
+          print(row)
+          PY
+
+      - name: Show key diagnostics
+        if: always()
+        run: |
+          echo "============================================================"
+          echo "P1 CURRENT-GPR BASELINE RECHECK"
+          echo "p=$TVPGVAR_P  B1=$TVPGVAR_B1  B2=$TVPGVAR_B2"
+          echo "kappa=$TVPGVAR_KAPPA0  mode=$TVPGVAR_GPR_LAG_MODE"
+          echo "============================================================"
+
+          for f in \
+            results/run_structural_summary.txt \
+            results/stability_summary_selected_dates.csv \
+            results/local_stability_summary_by_country.csv \
+            results/gdp_sign_diagnostic.csv \
+            results/gdp_sign_diagnostic_stable_only.csv \
+            results/gpr_structural_irf_summary.csv \
+            results/gpr_structural_irf_summary_stable_only.csv \
+            results/us_local_coefficient_summary.csv \
+            results/p1_current_gpr_recheck_parameters.csv; do
+            if [ -f "$f" ]; then
+              echo
+              echo "===== $f ====="
+              head -n 120 "$f"
+            fi
+          done
+
+      - name: Upload P1 current-GPR baseline results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p1-current-gpr-baseline-${{ github.run_id }}
+          path: |
+            results/**
+          if-no-files-found: warn
+          retention-days: 30
