@@ -1,0 +1,133 @@
+name: Diagnose GPR Lag1 to GDP From Lagged-GPR Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Completed P2 strong GDP lagged-GPR run ID"
+        required: true
+        default: "32506082676"
+      artifact_name:
+        description: "Artifact name from the completed run"
+        required: true
+        default: "p2-strong-gdp-lagged-gpr-32506082676"
+      dates:
+        description: "Diagnostic dates"
+        required: true
+        default: "2003Q1,2008Q3,2020Q1,2022Q1"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  diagnose:
+    name: GPR lag1 to GDP stable-only diagnostic
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download existing lagged-GPR posterior artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: source-artifact
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.source_run_id }}
+
+      - name: Verify diagnostic script and required posterior files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          test -f "8.12/diagnose_gpr_lag1_to_gdp_stable_only.R"
+
+          PRED_COUNT="$(find source-artifact -type f -name 'predDens_gpr_structural.rda' | wc -l)"
+          IRF_COUNT="$(find source-artifact -type f -name 'irf_gpr_structural.rda' | wc -l)"
+
+          if [ "$PRED_COUNT" -ne 1 ]; then
+            echo "Expected exactly one predDens_gpr_structural.rda; found $PRED_COUNT"
+            find source-artifact -type f | sort | head -n 200
+            exit 1
+          fi
+
+          if [ "$IRF_COUNT" -ne 1 ]; then
+            echo "Expected exactly one irf_gpr_structural.rda; found $IRF_COUNT"
+            find source-artifact -type f | sort | head -n 200
+            exit 1
+          fi
+
+          echo "===== Required files ====="
+          find source-artifact -type f \( \
+            -name 'predDens_gpr_structural.rda' -o \
+            -name 'irf_gpr_structural.rda' -o \
+            -name 'gdp_lagged_gpr_test_parameters.csv' -o \
+            -name 'gdp_sign_diagnostic_stable_only.csv' \
+          \) | sort
+
+      - name: Setup R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Run stable-only GPR lag1 to GDP coefficient diagnostic
+        env:
+          TVPGVAR_GDP_LAG_COEF_SOURCE_DIR: "source-artifact"
+          TVPGVAR_GDP_LAG_COEF_OUT: "gdp-gpr-lag-coef-diagnostic"
+          TVPGVAR_GDP_LAG_COEF_DATES: ${{ inputs.dates }}
+        run: |
+          Rscript --vanilla "8.12/diagnose_gpr_lag1_to_gdp_stable_only.R"
+
+      - name: Show key coefficient results
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "===== 01: Stable-only GPR lag1 -> GDP summary ====="
+          if [ -f "gdp-gpr-lag-coef-diagnostic/01_gpr_lag1_to_gdp_summary_stable_only.csv" ]; then
+            cat "gdp-gpr-lag-coef-diagnostic/01_gpr_lag1_to_gdp_summary_stable_only.csv"
+          fi
+
+          echo
+          echo "===== 03: Date-level sign summary ====="
+          if [ -f "gdp-gpr-lag-coef-diagnostic/03_gpr_lag1_to_gdp_date_sign_summary.csv" ]; then
+            cat "gdp-gpr-lag-coef-diagnostic/03_gpr_lag1_to_gdp_date_sign_summary.csv"
+          fi
+
+          echo
+          echo "===== 04: Non-US current GPR -> GDP zero check ====="
+          if [ -f "gdp-gpr-lag-coef-diagnostic/04_nonUS_current_GPR_to_GDP_zero_check.csv" ]; then
+            cat "gdp-gpr-lag-coef-diagnostic/04_nonUS_current_GPR_to_GDP_zero_check.csv"
+          fi
+
+          echo
+          echo "===== 05: US GPR lag2 -> GDP ====="
+          if [ -f "gdp-gpr-lag-coef-diagnostic/05_US_gpr_lag2_to_gdp_summary_stable_only.csv" ]; then
+            cat "gdp-gpr-lag-coef-diagnostic/05_US_gpr_lag2_to_gdp_summary_stable_only.csv"
+          fi
+
+          echo
+          echo "===== 07: Lag1 beta vs h=1 GDP IRF correlation ====="
+          if [ -f "gdp-gpr-lag-coef-diagnostic/07_gpr_lag1_beta_vs_GDP_h1_IRF_correlation_by_date.csv" ]; then
+            cat "gdp-gpr-lag-coef-diagnostic/07_gpr_lag1_beta_vs_GDP_h1_IRF_correlation_by_date.csv"
+          fi
+
+          echo
+          echo "===== Human-readable diagnostic summary ====="
+          if [ -f "gdp-gpr-lag-coef-diagnostic/README_diagnostic_summary.txt" ]; then
+            cat "gdp-gpr-lag-coef-diagnostic/README_diagnostic_summary.txt"
+          fi
+
+      - name: Upload GPR lag1 GDP diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpr-lag1-to-gdp-diagnostic-${{ inputs.source_run_id }}
+          path: gdp-gpr-lag-coef-diagnostic/
+          if-no-files-found: error
+          retention-days: 30
