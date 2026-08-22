@@ -1,0 +1,88 @@
+name: Diagnose Structural Channels (No MCMC)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Successful GDP-loglevel dominant GPR+VIX run"
+        required: true
+        default: "32594850147"
+        type: string
+      gpr_column:
+        description: "GPR column used in source artifact name"
+        required: true
+        type: choice
+        default: "LN_GPR_QMEAN"
+        options:
+          - LN_GPR_QMEAN
+          - LN_GPRT_QMEAN
+          - LN_GPRA_QMEAN
+          - LN_GPR_QMAX
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+
+      - name: Download exact saved posterior and IRF artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          GPR_COLUMN: ${{ inputs.gpr_column }}
+        run: |
+          set -euo pipefail
+          rm -rf prior_artifact
+          mkdir -p prior_artifact
+
+          gh run download "$SOURCE_RUN_ID" \
+            --name "gdp-loglevel-dominant-${GPR_COLUMN}-${SOURCE_RUN_ID}" \
+            --dir prior_artifact
+
+          test -f prior_artifact/results/predDens_dominant_gpr_vix.rda
+          test -f prior_artifact/results/irf_dominant_gpr_vix.rda
+
+          echo "===== SAVED FILES ====="
+          ls -lh prior_artifact/results/predDens_dominant_gpr_vix.rda
+          ls -lh prior_artifact/results/irf_dominant_gpr_vix.rda
+
+      - name: Parse channel-decomposition code
+        run: |
+          Rscript --vanilla -e \
+            'parse(file="8.12/09_diagnose_structural_channels.R"); cat("Parse passed.\n")'
+
+      - name: Run structural channel accounting
+        env:
+          TVPGVAR_POSTERIOR_RDA: "prior_artifact/results/predDens_dominant_gpr_vix.rda"
+          TVPGVAR_IRF_RDA: "prior_artifact/results/irf_dominant_gpr_vix.rda"
+          TVPGVAR_CHANNEL_OUT: "results/channel_decomposition"
+        run: |
+          set -euo pipefail
+          Rscript --vanilla "8.12/09_diagnose_structural_channels.R"
+
+      - name: Show key diagnosis
+        run: |
+          echo "===== CHANNEL DIAGNOSIS ====="
+          cat results/channel_decomposition/README_channel_diagnosis.txt
+
+          echo "===== EQUITY COEFFICIENT SIGN COUNTS ====="
+          cat results/channel_decomposition/equity_coefficient_sign_counts.csv
+
+          echo "===== EQUITY CHANNEL SIGN COUNTS ====="
+          cat results/channel_decomposition/equity_channel_sign_counts.csv
+
+      - name: Upload structural-channel results
+        uses: actions/upload-artifact@v4
+        with:
+          name: structural-channel-diagnostic-${{ github.run_id }}
+          path: results/channel_decomposition/
+          if-no-files-found: error
+          retention-days: 30
