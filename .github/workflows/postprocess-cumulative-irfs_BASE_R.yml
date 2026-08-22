@@ -1,0 +1,70 @@
+name: Postprocess Cumulative IRFs (No MCMC)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Successful GDP-loglevel run ID containing irf_dominant_gpr_vix.rda"
+        required: true
+        type: string
+      gpr_column:
+        description: "GPR column used in that source run (for artifact name)"
+        required: true
+        type: choice
+        default: "LN_GPR_QMEAN"
+        options:
+          - LN_GPR_QMEAN
+          - LN_GPRT_QMEAN
+          - LN_GPRA_QMEAN
+          - LN_GPR_QMAX
+
+jobs:
+  postprocess:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+
+      - name: Download completed GDP log-level artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          GPR_COLUMN: ${{ inputs.gpr_column }}
+        run: |
+          set -euo pipefail
+          mkdir -p prior_artifact
+          gh run download "$SOURCE_RUN_ID" \
+            --name "gdp-loglevel-dominant-${GPR_COLUMN}-${SOURCE_RUN_ID}" \
+            --dir prior_artifact
+          test -f prior_artifact/results/irf_dominant_gpr_vix.rda
+          ls -lh prior_artifact/results/irf_dominant_gpr_vix.rda
+
+      - name: Parse post-processing code
+        run: Rscript --vanilla -e 'parse(file="8.12/07_postprocess_cumulative_irfs.R"); cat("Parse passed.\n")'
+
+      - name: Build cumulative economic-effect IRFs
+        env:
+          TVPGVAR_IRF_RDA: "prior_artifact/results/irf_dominant_gpr_vix.rda"
+          TVPGVAR_POST_DIR: "results/cumulative_postprocess"
+        run: Rscript --vanilla "8.12/07_postprocess_cumulative_irfs.R"
+
+      - name: Show transformed sign diagnostics
+        run: |
+          cat results/cumulative_postprocess/README_interpretation.txt
+          echo "===== SIGN DIAGNOSTIC ====="
+          cat results/cumulative_postprocess/mixed_transform_sign_diagnostic_stable_only.csv
+
+      - name: Upload cumulative IRF results
+        uses: actions/upload-artifact@v4
+        with:
+          name: cumulative-irf-postprocess-${{ github.run_id }}
+          path: results/cumulative_postprocess/
+          if-no-files-found: error
+          retention-days: 30
