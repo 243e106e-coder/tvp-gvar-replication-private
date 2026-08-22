@@ -35,6 +35,11 @@ jobs:
       TVPGVAR_WEIGHT_FILE: "8.12/Trade_Weights_14_Economies_2000_2014.csv"
       TVPGVAR_GPR_CSV: "8.12/gpr_quarterly_processed.csv"
 
+      # Use the fixed local official FRED VIXCLS file already committed to the repo.
+      # No network download is performed by the VIX augmentation script.
+      TVPGVAR_VIX_RAW_CSV: "8.12/VIXCLS_daily_fred.csv"
+      TVPGVAR_VIX_PROCESSED_CSV: "data/vix_quarterly_processed.csv"
+
       TVPGVAR_PROFILE: "P2_strong_GPR_VIX_current_only"
       TVPGVAR_P: "2"
       TVPGVAR_B1: "8"
@@ -44,10 +49,6 @@ jobs:
 
       TVPGVAR_GPR_LAG_MODE: "current_only"
       TVPGVAR_NEAR_UNIT_THRESHOLD: "0.98"
-
-      # Official FRED VIXCLS daily close.
-      TVPGVAR_VIX_URL: "https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS"
-      TVPGVAR_REFRESH_VIX: "1"
 
     steps:
       - name: Checkout repository
@@ -98,21 +99,35 @@ jobs:
 
       - name: Activate current structural helper code
         run: |
+          set -euo pipefail
+
           cp "8.12/prepare_data_structural.R" "R/prepare_data_structural.R"
           cp "8.12/gpr_structural_irf.R" "R/gpr_structural_irf.R"
+
+          # Keep GPR+VIX helper files synchronized with the versions in 8.12.
+          cp "8.12/prepare_data_structural_gpr_vix.R" "R/prepare_data_structural_gpr_vix.R"
+          cp "8.12/gpr_vix_overrides.R" "R/gpr_vix_overrides.R"
 
           test -f "8.12/patch_BVAR_gpr_lag.R"
           test -f "8.12/run_gpr_tvp_gvar_structural.R"
           test -f "8.12/02_build_14e_input_structural.R"
-
           test -f "8.12/03_add_vix_to_structural_input.R"
           test -f "8.12/patch_run_gpr_vix.R"
+
           test -f "R/prepare_data_structural_gpr_vix.R"
           test -f "R/gpr_vix_overrides.R"
 
           test -f "$TVPGVAR_GPR_CSV"
           test -f "$TVPGVAR_MACRO_XLSX"
           test -f "$TVPGVAR_WEIGHT_FILE"
+          test -f "$TVPGVAR_VIX_RAW_CSV"
+
+          echo "Local VIX file found:"
+          ls -lh "$TVPGVAR_VIX_RAW_CSV"
+          echo "Local VIX first rows:"
+          head -n 5 "$TVPGVAR_VIX_RAW_CSV"
+          echo "Local VIX last rows:"
+          tail -n 5 "$TVPGVAR_VIX_RAW_CSV"
 
       - name: Create current GPR-lag-aware BVAR estimator
         run: |
@@ -133,8 +148,12 @@ jobs:
         run: |
           Rscript --vanilla "8.12/02_build_14e_input_structural.R"
 
-      - name: Add official VIXCLS to structural input
+      - name: Add local official VIXCLS to structural input
         run: |
+          set -euo pipefail
+
+          test -f "$TVPGVAR_VIX_RAW_CSV"
+
           Rscript --vanilla "8.12/03_add_vix_to_structural_input.R"
 
           echo "===== VIX input summary ====="
@@ -143,14 +162,33 @@ jobs:
           echo "===== US model columns ====="
           python - <<'PY'
           import csv
-          with open("data/model_input.csv", newline="", encoding="utf-8") as f:
+
+          with open(
+              "data/model_input.csv",
+              newline="",
+              encoding="utf-8"
+          ) as f:
               cols = next(csv.reader(f))
+
           us = [c for c in cols if c.startswith("US_")]
           print(us)
-          expected = ["US_gpr", "US_vix", "US_y", "US_dp", "US_r", "US_de", "US_deq"]
+
+          expected = [
+              "US_gpr",
+              "US_vix",
+              "US_y",
+              "US_dp",
+              "US_r",
+              "US_de",
+              "US_deq",
+          ]
+
           if us != expected:
-              raise SystemExit(f"US order mismatch: {us}")
-          print("US GPR->VIX ordering check passed.")
+              raise SystemExit(
+                  f"US order mismatch: {us}"
+              )
+
+          print("US GPR -> VIX ordering check passed.")
           PY
 
       - name: Generate GPR+VIX main run script
@@ -163,6 +201,7 @@ jobs:
           grep -n "prepare_data_structural_gpr_vix" "8.12/run_gpr_vix_tvp_gvar_structural.R" | head
 
           Rscript --vanilla -e '
+            parse(file = "8.12/03_add_vix_to_structural_input.R")
             parse(file = "8.12/run_gpr_vix_tvp_gvar_structural.R")
             parse(file = "R/prepare_data_structural_gpr_vix.R")
             parse(file = "R/gpr_vix_overrides.R")
@@ -258,7 +297,8 @@ jobs:
               "gpr_transform": "LN_GPR_QMEAN",
               "gpr_lag_mode": os.environ["TVPGVAR_GPR_LAG_MODE"],
               "vix_series": "VIXCLS",
-              "vix_transform": "log(quarterly mean of daily close)",
+              "vix_raw_file": os.environ["TVPGVAR_VIX_RAW_CSV"],
+              "vix_transform": "log(quarterly mean of available positive daily closes)",
               "ordering": "GPR -> VIX -> y -> dp -> r -> de -> deq",
               "trade_weights": os.environ["TVPGVAR_WEIGHT_FILE"],
           }
@@ -283,6 +323,11 @@ jobs:
           echo "===== Parameters ====="
           if [ -f results/gpr_vix_run_parameters.csv ]; then
             cat results/gpr_vix_run_parameters.csv
+          fi
+
+          echo "===== VIX input summary ====="
+          if [ -f results/vix_input_summary.txt ]; then
+            cat results/vix_input_summary.txt
           fi
 
           echo "===== Structural run summary ====="
@@ -326,7 +371,7 @@ jobs:
             data/model_input_structural.csv
             data/trade_weights.csv
             data/vix_quarterly_processed.csv
-            data/VIXCLS_daily_fred.csv
+            8.12/VIXCLS_daily_fred.csv
             8.12/run_gpr_vix_tvp_gvar_structural.R
           if-no-files-found: warn
           retention-days: 30
