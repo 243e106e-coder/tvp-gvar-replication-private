@@ -1,0 +1,197 @@
+name: Run Dominant-Unit GPR + VIX TVP-GVAR
+
+on:
+  workflow_dispatch:
+    inputs:
+      p:
+        description: "Country/dominant domestic lag order (1 or 2; default preserves P2-strong experiment)"
+        required: true
+        default: "2"
+      saves:
+        description: "Posterior saves"
+        required: true
+        default: "500"
+      burns:
+        description: "Burn-in draws"
+        required: true
+        default: "500"
+      thin:
+        description: "Fraction of saves retained for IRF"
+        required: true
+        default: "0.5"
+      horizon:
+        description: "IRF horizon in quarters"
+        required: true
+        default: "12"
+      shock_pct:
+        description: "GPR impact increase in percent"
+        required: true
+        default: "10"
+
+jobs:
+  estimate:
+    name: Separate dominant unit [GPR,VIX]
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    env:
+      TVPGVAR_MACRO_XLSX: "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+      TVPGVAR_WEIGHT_FILE: "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+      TVPGVAR_GPR_CSV: "8.12/gpr_quarterly_processed.csv"
+      TVPGVAR_VIX_RAW_CSV: "8.12/VIXCLS_daily_fred.csv"
+      TVPGVAR_VIX_PROCESSED_CSV: "data/vix_quarterly_processed.csv"
+      TVPGVAR_BASE_INPUT: "data/model_input.csv"
+      TVPGVAR_DOMINANT_INPUT: "data/model_input_dominant.csv"
+
+      TVPGVAR_PROFILE: "P2_strong_dominant_GPR_VIX"
+      TVPGVAR_B1: "8"
+      TVPGVAR_B2: "0.01"
+      TVPGVAR_KAPPA0: "-0.005"
+      TVPGVAR_SEED: "20260816"
+      TVPGVAR_NEAR_UNIT_THRESHOLD: "0.98"
+      TVPGVAR_G_CONDITION_WARN: "10000"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install R packages
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::remotes
+            any::readxl
+            any::snowfall
+            any::zoo
+            any::Matrix
+            any::mvtnorm
+            any::coda
+            any::bayesm
+            any::psych
+            any::MCMCpack
+            any::mnormt
+            any::rARPACK
+            any::ggplot2
+            any::GIGrvg
+            any::dlm
+            any::Rcpp
+            any::RcppArmadillo
+
+      - name: Install compatible stochvol
+        run: |
+          Rscript -e 'remotes::install_version(
+            "stochvol", version="3.2.9",
+            repos="https://cloud.r-project.org", upgrade="never")'
+
+      - name: Patch and install threshtvp
+        run: |
+          sed -i 's|inv_f=solve(f.t(),Vtt.t(), "std").t();|inv_f=solve(arma::mat(f.t()),arma::mat(Vtt.t()), "std").t();|' threshtvp_source/src/threshold_functions.cpp
+          R CMD INSTALL threshtvp_source
+
+      - name: Activate dominant-unit code
+        run: |
+          set -euo pipefail
+          cp "8.12/prepare_data_structural_dominant_gpr_vix.R" "R/prepare_data_structural_dominant_gpr_vix.R"
+          cp "8.12/dominant_gpr_vix_irf.R" "R/dominant_gpr_vix_irf.R"
+
+          test -f "8.12/04_build_dominant_unit_input.R"
+          test -f "8.12/patch_BVAR_dominant_unit.R"
+          test -f "8.12/run_dominant_gpr_vix_tvp_gvar.R"
+          test -f "8.12/02_build_14e_input_structural.R"
+          test -f "8.12/03_add_vix_to_structural_input.R"
+          test -f "$TVPGVAR_GPR_CSV"
+          test -f "$TVPGVAR_VIX_RAW_CSV"
+          test -f "$TVPGVAR_WEIGHT_FILE"
+
+      - name: Create dominant-unit compatible BVAR estimator
+        run: |
+          set -euo pipefail
+          Rscript --vanilla "8.12/patch_BVAR_dominant_unit.R"
+          test -f "R/BVAR_ttvp_dominant.r"
+          if grep -nF "ginv(A0inv)" "R/BVAR_ttvp_dominant.r"; then
+            echo "Broken inverse fallback remains"
+            exit 1
+          fi
+
+      - name: Build macro GPR VIX input
+        env:
+          TVPGVAR_GPR_COLUMN: "LN_GPR_QMEAN"
+        run: |
+          set -euo pipefail
+          Rscript --vanilla "8.12/02_build_14e_input_structural.R"
+          Rscript --vanilla "8.12/03_add_vix_to_structural_input.R"
+          Rscript --vanilla "8.12/04_build_dominant_unit_input.R"
+
+          python - <<'PY'
+          import csv
+          with open("data/model_input_dominant.csv", newline="", encoding="utf-8") as f:
+              cols = next(csv.reader(f))
+          us = [c for c in cols if c.startswith("US_")]
+          gl = [c for c in cols if c.startswith("GL_")]
+          assert us == ["US_y","US_dp","US_r","US_de","US_deq"], us
+          assert gl == ["GL_gpr","GL_vix"], gl
+          assert len(cols) == 73, len(cols)  # Quarter + 72 variables
+          print("Dominant input architecture check passed.")
+          PY
+
+      - name: Parse all new R files before MCMC
+        run: |
+          set -euo pipefail
+          Rscript --vanilla -e '
+            parse(file="8.12/04_build_dominant_unit_input.R")
+            parse(file="8.12/prepare_data_structural_dominant_gpr_vix.R")
+            parse(file="8.12/patch_BVAR_dominant_unit.R")
+            parse(file="8.12/dominant_gpr_vix_irf.R")
+            parse(file="8.12/run_dominant_gpr_vix_tvp_gvar.R")
+            parse(file="R/BVAR_ttvp_dominant.r")
+            cat("All dominant-unit R parse checks passed.\n")
+          '
+
+      - name: Run dominant-unit TVP-GVAR
+        env:
+          TVPGVAR_P: ${{ inputs.p }}
+          TVPGVAR_SAVES: ${{ inputs.saves }}
+          TVPGVAR_BURNS: ${{ inputs.burns }}
+          TVPGVAR_THIN: ${{ inputs.thin }}
+          TVPGVAR_HORIZON: ${{ inputs.horizon }}
+          TVPGVAR_GPR_SHOCK_PCT: ${{ inputs.shock_pct }}
+        run: |
+          set -euo pipefail
+          Rscript --vanilla "8.12/run_dominant_gpr_vix_tvp_gvar.R"
+
+      - name: Show key diagnostics
+        if: always()
+        run: |
+          for f in \
+            results/dominant_model_architecture_summary.txt \
+            results/dominant_unit_mapping_audit.csv \
+            results/dominant_design_preflight.csv \
+            results/dominant_lag_spec_diagnostic.csv \
+            results/stability_summary_selected_dates.csv \
+            results/local_stability_summary_by_country.csv \
+            results/gdp_sign_diagnostic_stable_only.csv \
+            results/gpr_shock_validation.csv; do
+              if [ -f "$f" ]; then
+                echo "===== $f ====="
+                cat "$f"
+              fi
+          done
+
+      - name: Upload dominant-unit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dominant-gpr-vix-tvp-gvar-${{ github.run_id }}
+          path: |
+            results/
+            data/model_input_dominant.csv
+            data/vix_quarterly_processed.csv
+            8.12/VIXCLS_daily_fred.csv
+          if-no-files-found: warn
+          retention-days: 30
