@@ -15,10 +15,6 @@
 # cumulation. Do not sum posterior medians from the summary CSV.
 # =============================================================================
 
-suppressPackageStartupMessages({
-  library(ggplot2)
-})
-
 input_rda <- Sys.getenv(
   "TVPGVAR_IRF_RDA",
   "prior_artifact/results/irf_dominant_gpr_vix.rda"
@@ -165,9 +161,7 @@ sign_diag <- do.call(rbind, lapply(split(sum_stable, list(sum_stable$date, sum_s
 write.csv(sign_diag, file.path(out_dir, "mixed_transform_sign_diagnostic_stable_only.csv"), row.names = FALSE)
 
 # -----------------------------------------------------------------------------
-# Plot stable-only results: one variable x date, 14 country facets.
-# 90% ribbon = lighter; 68% ribbon = darker.
-# No fixed colors are required; base ggplot defaults are used.
+# Plot stable-only results using BASE R only (no external packages required)
 # -----------------------------------------------------------------------------
 concept_titles <- c(
   y   = "GDP log-level response (direct IRF)",
@@ -184,24 +178,66 @@ for (ccpt in names(concept_titles)) {
   for (dd in selected_dates) {
     d <- subset(sum_stable, concept == ccpt & date == dd)
     if (!nrow(d)) next
-    p <- ggplot(d, aes(x = horizon, y = median)) +
-      geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.35) +
-      geom_ribbon(aes(ymin = low90, ymax = high90), alpha = 0.15) +
-      geom_ribbon(aes(ymin = low68, ymax = high68), alpha = 0.30) +
-      geom_line(linewidth = 0.55) +
-      facet_wrap(~ country, scales = "free_y", ncol = 4) +
-      labs(
-        title = paste0(concept_titles[[ccpt]], " — ", dd),
-        subtitle = "Stable posterior draws; median with 68% and 90% credible intervals",
-        x = "Horizon (quarters)", y = "Response in model units"
-      ) +
-      theme_bw(base_size = 10) +
-      theme(strip.text = element_text(face = "bold"), plot.title = element_text(face = "bold"))
 
-    ggsave(
+    png(
       filename = file.path(plot_dir, paste0(ccpt, "_", dd, "_stable.png")),
-      plot = p, width = 13, height = 9, dpi = 220
+      width = 2600, height = 1900, res = 180
     )
+
+    oldpar <- par(no.readonly = TRUE)
+    par(mfrow = c(4, 4), mar = c(3.2, 3.5, 2.2, 1.0), oma = c(2, 2, 4, 1))
+
+    countries <- unique(d$country)
+    for (country in countries) {
+      z <- d[d$country == country, ]
+      z <- z[order(z$horizon), ]
+
+      yr <- range(c(z$low90, z$high90, 0), finite = TRUE)
+      if (!all(is.finite(yr)) || diff(yr) == 0) yr <- c(-1, 1)
+
+      plot(
+        z$horizon, z$median, type = "n",
+        xlab = "Horizon", ylab = "Response",
+        main = country, ylim = yr
+      )
+
+      # 90% credible interval
+      polygon(
+        c(z$horizon, rev(z$horizon)),
+        c(z$low90, rev(z$high90)),
+        border = NA,
+        col = adjustcolor("grey70", alpha.f = 0.45)
+      )
+
+      # 68% credible interval
+      polygon(
+        c(z$horizon, rev(z$horizon)),
+        c(z$low68, rev(z$high68)),
+        border = NA,
+        col = adjustcolor("grey45", alpha.f = 0.45)
+      )
+
+      abline(h = 0, lty = 2)
+      lines(z$horizon, z$median, lwd = 1.5)
+      points(z$horizon, z$median, pch = 16, cex = 0.45)
+    }
+
+    # Fill unused panels if fewer than 16 countries.
+    if (length(countries) < 16L) {
+      for (ii in seq_len(16L - length(countries))) plot.new()
+    }
+
+    mtext(
+      paste0(concept_titles[[ccpt]], " — ", dd),
+      outer = TRUE, side = 3, line = 1.8, cex = 1.15, font = 2
+    )
+    mtext(
+      "Stable posterior draws; median with 68% and 90% credible intervals",
+      outer = TRUE, side = 3, line = 0.3, cex = 0.85
+    )
+
+    par(oldpar)
+    dev.off()
   }
 }
 
