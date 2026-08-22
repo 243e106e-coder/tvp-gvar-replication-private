@@ -1,0 +1,81 @@
+name: Diagnose REER + Equity Data (No MCMC)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Successful GDP-loglevel run containing data/model_input_dominant.csv"
+        required: true
+        default: "32594850147"
+        type: string
+      gpr_column:
+        description: "GPR column used in the source run (artifact name)"
+        required: true
+        type: choice
+        default: "LN_GPR_QMEAN"
+        options:
+          - LN_GPR_QMEAN
+          - LN_GPRT_QMEAN
+          - LN_GPRA_QMEAN
+          - LN_GPR_QMAX
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+
+      - name: Download successful model input artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          GPR_COLUMN: ${{ inputs.gpr_column }}
+        run: |
+          set -euo pipefail
+          rm -rf prior_artifact
+          mkdir -p prior_artifact
+          gh run download "$SOURCE_RUN_ID" \
+            --name "gdp-loglevel-dominant-${GPR_COLUMN}-${SOURCE_RUN_ID}" \
+            --dir prior_artifact
+          test -f prior_artifact/data/model_input_dominant.csv
+          echo "Downloaded exact model input from source run ${SOURCE_RUN_ID}:"
+          ls -lh prior_artifact/data/model_input_dominant.csv
+
+      - name: Parse diagnostic script
+        run: |
+          Rscript --vanilla -e 'parse(file="8.12/08_diagnose_reer_equity_data.R"); cat("Parse passed.\n")'
+
+      - name: Run data sanity diagnostic
+        env:
+          TVPGVAR_SANITY_INPUT: "prior_artifact/data/model_input_dominant.csv"
+          TVPGVAR_SANITY_OUT: "results/data_sanity_diagnostic"
+        run: |
+          set -euo pipefail
+          Rscript --vanilla "8.12/08_diagnose_reer_equity_data.R"
+
+      - name: Show key verdicts
+        run: |
+          echo "===== README ====="
+          cat results/data_sanity_diagnostic/README_diagnostic.txt
+          echo "===== AUTOMATIC VERDICTS ====="
+          cat results/data_sanity_diagnostic/automatic_verdicts.csv
+          echo "===== SCALE FLAGS ====="
+          awk -F, 'NR==1 || $17 != "OK"' results/data_sanity_diagnostic/scale_summary_reer_equity.csv || true
+          echo "===== STRESS QUARTERS ====="
+          cat results/data_sanity_diagnostic/equity_stress_quarter_sign_summary.csv
+
+      - name: Upload diagnostic results
+        uses: actions/upload-artifact@v4
+        with:
+          name: reer-equity-data-diagnostic-${{ github.run_id }}
+          path: results/data_sanity_diagnostic/
+          if-no-files-found: error
+          retention-days: 30
