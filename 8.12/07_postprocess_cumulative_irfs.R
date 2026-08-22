@@ -27,11 +27,16 @@ out_dir <- Sys.getenv("TVPGVAR_POST_DIR", "results/cumulative_postprocess")
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 
 if (!file.exists(input_rda)) stop("Missing draw-level IRF file: ", input_rda)
-load(input_rda)
 
 need <- c("IRF_post", "stable_mask")
-missing_obj <- need[!vapply(need, exists, logical(1), inherits = FALSE)]
-if (length(missing_obj)) stop("IRF RDA is missing: ", paste(missing_obj, collapse = ", "))
+loaded_names <- load(input_rda)
+missing_obj <- setdiff(need, loaded_names)
+if (length(missing_obj)) {
+  stop(
+    "IRF RDA is missing: ", paste(missing_obj, collapse = ", "),
+    ". Objects actually found: ", paste(loaded_names, collapse = ", ")
+  )
+}
 
 if (length(dim(IRF_post)) != 4L) stop("IRF_post must be [date, variable, horizon, draw].")
 if (!all(dim(stable_mask) == c(dim(IRF_post)[1], dim(IRF_post)[4]))) {
