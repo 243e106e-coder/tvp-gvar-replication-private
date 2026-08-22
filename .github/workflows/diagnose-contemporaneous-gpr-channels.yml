@@ -1,0 +1,119 @@
+name: Diagnose Contemporaneous GPR Channels
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Completed P2-Strong GPR+VIX run ID"
+        required: true
+        default: "32541326030"
+      stable_only:
+        description: "Use only baseline globally stable draws (1=yes, 0=no)"
+        required: true
+        default: "1"
+      dates:
+        description: "Comma-separated diagnostic quarters"
+        required: true
+        default: "2003Q1,2008Q3,2014Q3,2020Q1,2022Q1,2023Q4"
+      shock_pct:
+        description: "Pure GPR impact normalization in percent"
+        required: true
+        default: "10"
+
+jobs:
+  diagnose:
+    name: GPR contemporaneous channel decomposition
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+
+      - name: Download completed P2-Strong GPR+VIX artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          set -euo pipefail
+
+          ARTIFACT_NAME="p2-strong-gpr-vix-current-only-${SOURCE_RUN_ID}"
+
+          echo "Source run: ${SOURCE_RUN_ID}"
+          echo "Artifact:   ${ARTIFACT_NAME}"
+
+          mkdir -p prior_artifact
+
+          gh run download "${SOURCE_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "${ARTIFACT_NAME}" \
+            --dir prior_artifact
+
+          test -f prior_artifact/results/predDens_gpr_vix_structural.rda
+          test -f prior_artifact/results/irf_gpr_structural.rda
+
+          echo "Posterior object:"
+          ls -lh prior_artifact/results/predDens_gpr_vix_structural.rda
+          echo "IRF/stability object:"
+          ls -lh prior_artifact/results/irf_gpr_structural.rda
+
+      - name: Parse diagnostic script
+        run: |
+          Rscript --vanilla -e '
+            parse(file = "8.12/05_diagnose_contemporaneous_gpr_channels.R")
+            cat("R syntax: PASS\n")
+          '
+
+      - name: Run post-estimation channel diagnostic
+        env:
+          TVPGVAR_RESULTS_DIR: "prior_artifact/results"
+          TVPGVAR_CHANNEL_DIAG_OUT: "channel_diagnostic_results"
+          TVPGVAR_DIAG_STABLE_ONLY: ${{ inputs.stable_only }}
+          TVPGVAR_DIAG_DATES: ${{ inputs.dates }}
+          TVPGVAR_GPR_SHOCK_PCT: ${{ inputs.shock_pct }}
+        run: |
+          set -euo pipefail
+
+          Rscript --vanilla "8.12/05_diagnose_contemporaneous_gpr_channels.R"
+
+          echo
+          echo "===== CHANNEL DECOMPOSITION SUMMARY ====="
+          cat channel_diagnostic_results/h0_channel_decomposition_summary.txt
+
+          echo
+          echo "===== SIGN COUNTS ====="
+          cat channel_diagnostic_results/h0_sign_counts_by_scenario.csv
+
+          echo
+          echo "===== NON-US GDP GLOBAL-GPR COEFFICIENTS ====="
+          python - <<'PY'
+          import csv
+          p = "channel_diagnostic_results/nonUS_gdp_wex_coeff_summary.csv"
+          with open(p, newline="", encoding="utf-8") as f:
+              rows = list(csv.DictReader(f))
+          rows = [r for r in rows if r["term"] == "global_gpr"]
+          print("date,country,median,low68,high68,positive_share")
+          for r in rows:
+              print(",".join([
+                  r["date"], r["country"], r["median"],
+                  r["low68"], r["high68"], r["positive_share"]
+              ]))
+          PY
+
+      - name: Upload channel diagnostic results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contemporaneous-gpr-channel-diagnostic-${{ github.run_id }}
+          path: channel_diagnostic_results/
+          if-no-files-found: warn
+          retention-days: 30
