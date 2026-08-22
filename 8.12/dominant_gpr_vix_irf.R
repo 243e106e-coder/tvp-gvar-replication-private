@@ -4,6 +4,8 @@
 # Local structural identification ONLY in dominant unit:
 #   GL_gpr -> GL_vix
 #
+# IMPORTANT: supports p=2, q=1 by padding the missing Wex lag-2 block with zeros.
+#
 # Other country blocks are not Cholesky-ordered for the GPR shock.  The shock is
 # injected into the dominant-unit innovation and propagated through the stacked
 # contemporaneous GVAR system and dynamic transition matrices.
@@ -137,9 +139,46 @@ get_dominant_gpr_irf_t <- function(tt, draw_i, Sig_draw_i, x, globalG, units,
 
     H <- vector("list", V$p)
     own_lags <- vector("list", V$p)
+
+    # GVAR(p,q) alignment:
+    #   domestic lag order p may be 2, while foreign/global lag order q is 1.
+    # Therefore country lag 2 has NO estimated Wexlag2 block.  For global
+    # reconstruction that missing block is not "dimension 0" conceptually;
+    # it is a structurally-zero k_i x (nrow(Wi)-k_i) coefficient matrix.
+    #
+    # Example for AU under p=2,q=1:
+    #   Wi rows = 5 own + 7 foreign/global = 12
+    #   lag 1 B = [Theta1(5x5), Lambda1(5x7)] -> 5x12
+    #   lag 2 B = [Theta2(5x5), zeros(5x7)]   -> 5x12
+    #
+    # The GL dominant unit has zero foreign/global rows, so its zero-width
+    # lag block remains 2x0 at every lag.
     for (kk in seq_len(V$p)) {
       theta <- slice_coef(V$Theta[[kk]], tt, k_i)
       lag_ex <- slice_coef(V$Lambda[[kk]], tt, k_i)
+
+      expected_foreign <- nrow(Wi) - k_i
+      if (expected_foreign < 0L) {
+        stop("W has fewer rows than own variables for ", units[[i]])
+      }
+
+      if (ncol(lag_ex) == 0L && expected_foreign > 0L) {
+        # q=1 with p>1: all foreign/global coefficients at lag >=2 are
+        # structurally zero.  Do NOT estimate or copy lag-1 coefficients.
+        if (kk <= 1L) {
+          stop("Missing Wexlag1 block for ", units[[i]])
+        }
+        lag_ex <- matrix(0, nrow = k_i, ncol = expected_foreign)
+      }
+
+      if (ncol(lag_ex) != expected_foreign) {
+        stop(
+          "Foreign-lag/W mismatch for ", units[[i]], " lag ", kk,
+          ": lag_ex cols=", ncol(lag_ex),
+          ", expected=", expected_foreign
+        )
+      }
+
       own_lags[[kk]] <- theta
       B <- cbind(theta, lag_ex)
       if (ncol(B) != nrow(Wi)) {
