@@ -1,0 +1,108 @@
+name: Diagnose h0 GPR Mapping + JP UK Stability
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Completed GPR+VIX run ID whose artifact should be diagnosed"
+        required: true
+        default: "32541326030"
+      stable_only:
+        description: "Use only globally stable draws for h=0 comparison (1=yes, 0=no)"
+        required: true
+        default: "1"
+      dates:
+        description: "Comma-separated diagnostic quarters"
+        required: true
+        default: "2003Q1,2008Q3,2014Q3,2020Q1,2022Q1,2023Q4"
+      shock_pct:
+        description: "GPR impact normalization in percent"
+        required: true
+        default: "10"
+
+jobs:
+  diagnose:
+    name: h0 mapping and JP-UK local stability
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+
+      - name: Download completed GPR+VIX artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          set -euo pipefail
+
+          ARTIFACT_NAME="p2-strong-gpr-vix-current-only-${SOURCE_RUN_ID}"
+
+          echo "Source run: ${SOURCE_RUN_ID}"
+          echo "Artifact:   ${ARTIFACT_NAME}"
+
+          mkdir -p prior_artifact
+
+          gh run download "${SOURCE_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "${ARTIFACT_NAME}" \
+            --dir prior_artifact
+
+          test -f prior_artifact/results/predDens_gpr_vix_structural.rda
+          test -f prior_artifact/results/irf_gpr_structural.rda
+
+          echo "Posterior:"
+          ls -lh prior_artifact/results/predDens_gpr_vix_structural.rda
+
+          echo "IRF/stability object:"
+          ls -lh prior_artifact/results/irf_gpr_structural.rda
+
+      - name: Parse diagnostic script
+        run: |
+          Rscript --vanilla -e '
+            parse(file = "8.12/04_diagnose_h0_mapping_jp_uk.R")
+            cat("Diagnostic R syntax: PASS\n")
+          '
+
+      - name: Run lightweight post-estimation diagnostic
+        env:
+          TVPGVAR_RESULTS_DIR: "prior_artifact/results"
+          TVPGVAR_H0_DIAG_OUT: "diagnostic_results"
+          TVPGVAR_DIAG_STABLE_ONLY: ${{ inputs.stable_only }}
+          TVPGVAR_DIAG_DATES: ${{ inputs.dates }}
+          TVPGVAR_GPR_SHOCK_PCT: ${{ inputs.shock_pct }}
+          TVPGVAR_DRIVER_COUNTRIES: "JP,UK"
+        run: |
+          set -euo pipefail
+
+          Rscript --vanilla "8.12/04_diagnose_h0_mapping_jp_uk.R"
+
+          echo "===== DIAGNOSTIC SUMMARY ====="
+          cat diagnostic_results/h0_mapping_diagnostic_summary.txt
+
+          echo
+          echo "===== h=0 GDP FULL VS GPR-ONLY ====="
+          head -n 40 diagnostic_results/h0_gdp_full_vs_gpr_only_summary.csv
+
+          echo
+          echo "===== JP/UK OVERALL DRIVER SUMMARY ====="
+          cat diagnostic_results/jp_uk_stability_driver_overall.csv
+
+      - name: Upload diagnostic results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: h0-jp-uk-diagnostic-${{ github.run_id }}
+          path: diagnostic_results/
+          if-no-files-found: warn
+          retention-days: 30
