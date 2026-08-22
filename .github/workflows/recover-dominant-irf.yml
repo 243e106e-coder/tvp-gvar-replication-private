@@ -1,0 +1,112 @@
+name: Recover Dominant-Unit IRF Without MCMC
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Failed run whose artifact contains the completed posterior"
+        required: true
+        default: "32576318744"
+      horizon:
+        description: "IRF horizon in quarters"
+        required: true
+        default: "12"
+      shock_pct:
+        description: "GPR impact increase in percent"
+        required: true
+        default: "10"
+
+jobs:
+  recover:
+    name: Recover IRF and stability from saved posterior
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    permissions:
+      contents: read
+      actions: read
+
+    env:
+      TVPGVAR_PROFILE: "P2_strong_dominant_GPR_VIX_recovery"
+      TVPGVAR_NEAR_UNIT_THRESHOLD: "0.98"
+      TVPGVAR_G_CONDITION_WARN: "10000"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+
+      - name: Download completed posterior from failed source run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          set -euo pipefail
+
+          ARTIFACT_NAME="dominant-gpr-vix-tvp-gvar-${SOURCE_RUN_ID}"
+          mkdir -p prior_artifact
+
+          echo "Source run: ${SOURCE_RUN_ID}"
+          echo "Artifact:   ${ARTIFACT_NAME}"
+
+          gh run download "${SOURCE_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "${ARTIFACT_NAME}" \
+            --dir prior_artifact
+
+          test -f prior_artifact/results/predDens_dominant_gpr_vix.rda
+
+          echo "===== Saved posterior ====="
+          ls -lh prior_artifact/results/predDens_dominant_gpr_vix.rda
+
+          echo "===== Source diagnostics already completed ====="
+          find prior_artifact/results -maxdepth 1 -type f -printf "%f\n" | sort
+
+      - name: Parse corrected recovery code
+        run: |
+          set -euo pipefail
+          Rscript --vanilla -e '
+            parse(file="8.12/dominant_gpr_vix_irf.R")
+            parse(file="8.12/06_recover_dominant_irf_from_saved_posterior.R")
+            cat("Recovery R parse checks passed.\n")
+          '
+
+      - name: Run IRF and stability recovery only
+        env:
+          TVPGVAR_DOMINANT_POSTERIOR: "prior_artifact/results/predDens_dominant_gpr_vix.rda"
+          TVPGVAR_RECOVERY_RESULTS: "results"
+          TVPGVAR_HORIZON: ${{ inputs.horizon }}
+          TVPGVAR_GPR_SHOCK_PCT: ${{ inputs.shock_pct }}
+        run: |
+          set -euo pipefail
+
+          Rscript --vanilla "8.12/06_recover_dominant_irf_from_saved_posterior.R"
+
+          echo
+          echo "===== Recovery metadata ====="
+          cat results/dominant_recovery_metadata.txt
+
+          echo
+          echo "===== Shock validation ====="
+          cat results/gpr_shock_validation.csv
+
+          echo
+          echo "===== Selected-date stability ====="
+          cat results/stability_summary_selected_dates.csv
+
+          echo
+          echo "===== GDP stable-only diagnostic (head) ====="
+          head -80 results/gdp_sign_diagnostic_stable_only.csv
+
+      - name: Upload recovered dominant-unit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dominant-gpr-vix-recovered-${{ github.run_id }}
+          path: results/
+          if-no-files-found: warn
+          retention-days: 30
