@@ -1,0 +1,135 @@
+name: Diagnose Equity + ZA Switch-Off
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Completed dominant GPR+VIX TVP-GVAR run ID"
+        required: true
+        type: string
+      dates:
+        description: "Diagnostic quarters"
+        required: true
+        default: "2003Q1,2008Q3,2014Q3,2020Q1,2022Q1,2023Q4"
+        type: string
+      horizon:
+        description: "IRF horizon"
+        required: true
+        default: "12"
+        type: string
+      shock_pct:
+        description: "GPR shock normalization (%)"
+        required: true
+        default: "10"
+        type: string
+      check_cf_stability:
+        description: "Recompute counterfactual spectral radius (1=yes, 0=faster)"
+        required: true
+        default: "1"
+        type: string
+      max_draws:
+        description: "0 = all original stable draws; use e.g. 25 only for smoke test"
+        required: true
+        default: "0"
+        type: string
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+
+      - name: Download completed dominant GPR+VIX artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          set -euo pipefail
+
+          ARTIFACT_NAME="dominant-gpr-vix-tvp-gvar-${SOURCE_RUN_ID}"
+
+          echo "Source run: ${SOURCE_RUN_ID}"
+          echo "Artifact:   ${ARTIFACT_NAME}"
+
+          mkdir -p prior_artifact
+
+          gh run download "${SOURCE_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "${ARTIFACT_NAME}" \
+            --dir prior_artifact
+
+          test -f prior_artifact/results/predDens_dominant_gpr_vix.rda
+          test -f prior_artifact/results/irf_dominant_gpr_vix.rda
+
+          ls -lh prior_artifact/results/predDens_dominant_gpr_vix.rda
+          ls -lh prior_artifact/results/irf_dominant_gpr_vix.rda
+
+      - name: Parse counterfactual script
+        run: |
+          set -euo pipefail
+          Rscript --vanilla -e '
+            parse(file = "8.12/10_counterfactual_switch_off_equity_ZA.R")
+            cat("R syntax: PASS\n")
+          '
+
+      - name: Run switch-off diagnostic
+        env:
+          TVPGVAR_POSTERIOR_RDA: "prior_artifact/results/predDens_dominant_gpr_vix.rda"
+          TVPGVAR_IRF_RDA: "prior_artifact/results/irf_dominant_gpr_vix.rda"
+          TVPGVAR_CF_OUT: "results/switch_off_diagnostic"
+          TVPGVAR_CF_DATES: ${{ inputs.dates }}
+          TVPGVAR_CF_HORIZON: ${{ inputs.horizon }}
+          TVPGVAR_CF_FOCUS_HORIZONS: "0,1,4,8,12"
+          TVPGVAR_GPR_SHOCK_PCT: ${{ inputs.shock_pct }}
+          TVPGVAR_CF_CHECK_STABILITY: ${{ inputs.check_cf_stability }}
+          TVPGVAR_CF_MAX_DRAWS: ${{ inputs.max_draws }}
+        run: |
+          set -euo pipefail
+
+          Rscript --vanilla "8.12/10_counterfactual_switch_off_equity_ZA.R"
+
+          echo
+          echo "===== SWITCH-OFF README ====="
+          cat results/switch_off_diagnostic/README_switch_off_diagnosis.txt
+
+          echo
+          echo "===== EQUITY DECISION TABLE ====="
+          cat results/switch_off_diagnostic/05_equity_switch_off_decision_table.csv
+
+          echo
+          echo "===== 2022Q1 EQUITY FOCUS ====="
+          if [ -f results/switch_off_diagnostic/FOCUS_2022Q1_h12_equity_switch_off.csv ]; then
+            cat results/switch_off_diagnostic/FOCUS_2022Q1_h12_equity_switch_off.csv
+          fi
+
+          echo
+          echo "===== 2022Q1 ZA REER FOCUS ====="
+          if [ -f results/switch_off_diagnostic/FOCUS_2022Q1_h12_ZA_REER_switch_off.csv ]; then
+            cat results/switch_off_diagnostic/FOCUS_2022Q1_h12_ZA_REER_switch_off.csv
+          fi
+
+          echo
+          echo "===== COUNTERFACTUAL STABILITY ====="
+          cat results/switch_off_diagnostic/07_counterfactual_solve_stability_summary.csv
+
+      - name: Upload switch-off diagnostic
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: switch-off-diagnostic-${{ github.run_id }}
+          path: |
+            results/switch_off_diagnostic/
+          if-no-files-found: warn
+          retention-days: 30
