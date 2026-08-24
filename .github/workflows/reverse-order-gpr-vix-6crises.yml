@@ -1,0 +1,108 @@
+name: Reverse-Order GPR-VIX IRF Robustness - 6 Crises (No MCMC)
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Source run containing predDens_dominant_gpr_vix.rda"
+        required: true
+      horizon:
+        description: "IRF horizon in quarters"
+        required: true
+        default: "12"
+      shock_pct:
+        description: "GPR impact increase in percent"
+        required: true
+        default: "10"
+
+jobs:
+  reverse_order:
+    name: Compare GPR->VIX vs VIX->GPR from same posterior
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+
+      - name: Download source-run artifacts and locate saved posterior
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          set -euo pipefail
+
+          rm -rf prior_artifact
+          mkdir -p prior_artifact
+
+          gh run download "${SOURCE_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --dir prior_artifact
+
+          echo "===== Downloaded files ====="
+          find prior_artifact -maxdepth 4 -type f -printf "%p\n" | sort
+
+          POSTERIOR="$(find prior_artifact -type f -name 'predDens_dominant_gpr_vix.rda' | head -n 1)"
+
+          if [ -z "${POSTERIOR}" ]; then
+            echo "ERROR: predDens_dominant_gpr_vix.rda not found in source run ${SOURCE_RUN_ID}"
+            exit 1
+          fi
+
+          echo "Found posterior: ${POSTERIOR}"
+          ls -lh "${POSTERIOR}"
+
+          echo "TVPGVAR_DOMINANT_POSTERIOR=${POSTERIOR}" >> "${GITHUB_ENV}"
+
+      - name: Parse reverse-order code
+        run: |
+          set -euo pipefail
+          Rscript --vanilla -e '
+            parse(file="8.12/dominant_gpr_vix_irf.R")
+            parse(file="8.12/09_reverse_order_irf_6crises_from_saved_posterior.R")
+            cat("R parse checks passed.\n")
+          '
+
+      - name: Run reverse-order identification robustness only
+        env:
+          TVPGVAR_REVERSE_RESULTS: "results_reverse_order"
+          TVPGVAR_HORIZON: ${{ inputs.horizon }}
+          TVPGVAR_GPR_SHOCK_PCT: ${{ inputs.shock_pct }}
+        run: |
+          set -euo pipefail
+
+          Rscript --vanilla "8.12/09_reverse_order_irf_6crises_from_saved_posterior.R"
+
+          echo
+          echo "===== README ====="
+          cat results_reverse_order/README_reverse_order_identification.txt
+
+          echo
+          echo "===== Stability ====="
+          cat results_reverse_order/05_stability_selected_dates.csv
+
+          echo
+          echo "===== Identification validation ====="
+          cat results_reverse_order/06_identification_validation.csv
+
+          echo
+          echo "===== Sign agreement ====="
+          cat results_reverse_order/04_sign_agreement_summary.csv
+
+      - name: Upload reverse-order robustness results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reverse-order-gpr-vix-irf-6crises-${{ github.run_id }}
+          path: results_reverse_order/
+          if-no-files-found: warn
+          retention-days: 30
