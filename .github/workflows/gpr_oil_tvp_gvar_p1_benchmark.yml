@@ -1,0 +1,192 @@
+name: GPR Oil TVP-GVAR p1 Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      main_r_script:
+        description: "Path to the CURRENT successful GPR+Oil main R script"
+        required: true
+        default: "8.12/run_tvp_gvar_gpr_oil.R"
+        type: string
+
+jobs:
+  run-p1-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    env:
+      # ======================================================
+      # ONLY EXPERIMENTAL CHANGE:
+      # domestic lag p = 1
+      # ======================================================
+      TVPGVAR_P: "1"
+
+      # Keep q unchanged
+      TVPGVAR_Q: "1"
+
+      # Explicit profile label so p=1 results do not mix with p=2
+      MODEL_PROFILE: "GDP_LOGLEVEL_dominant_GPR_OIL_p1_q1"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install required packages
+        shell: Rscript {0}
+        run: |
+          pkgs <- c(
+            "data.table",
+            "dplyr",
+            "tidyr",
+            "readr",
+            "ggplot2",
+            "zoo",
+            "lubridate",
+            "Matrix",
+            "MASS",
+            "mvtnorm",
+            "coda"
+          )
+
+          to_install <- pkgs[!vapply(
+            pkgs,
+            requireNamespace,
+            quietly = TRUE,
+            FUN.VALUE = logical(1)
+          )]
+
+          if (length(to_install) > 0) {
+            install.packages(to_install)
+          }
+
+      - name: Confirm benchmark specification
+        shell: bash
+        run: |
+          echo "=================================================="
+          echo "GPR + OIL TVP-GVAR: p=1 lag benchmark"
+          echo "=================================================="
+          echo "Domestic lag p     = ${TVPGVAR_P}"
+          echo "Global/foreign q   = ${TVPGVAR_Q}"
+          echo "Model profile      = ${MODEL_PROFILE}"
+          echo ""
+          echo "KEEP UNCHANGED:"
+          echo "  GDP              = log level"
+          echo "  GPR              = current quarterly GPR specification"
+          echo "  Oil              = log Brent price level"
+          echo "  Dominant block   = [GPR, Oil]"
+          echo "  Ordering         = GPR -> Oil"
+          echo "  Trade weights    = unchanged"
+          echo "  TVP structure    = unchanged"
+          echo "  Priors/draws     = unchanged"
+          echo "=================================================="
+
+      - name: Check main R script
+        shell: bash
+        run: |
+          SCRIPT="${{ inputs.main_r_script }}"
+          echo "Main R script: ${SCRIPT}"
+
+          if [ ! -f "${SCRIPT}" ]; then
+            echo "ERROR: Cannot find ${SCRIPT}"
+            echo ""
+            echo "Available R files under 8.12:"
+            find 8.12 -maxdepth 3 -type f -name "*.R" -print || true
+            exit 1
+          fi
+
+      - name: Run p=1 benchmark
+        shell: bash
+        env:
+          TVPGVAR_P: "1"
+          TVPGVAR_Q: "1"
+          MODEL_PROFILE: "GDP_LOGLEVEL_dominant_GPR_OIL_p1_q1"
+        run: |
+          set -euo pipefail
+
+          SCRIPT="${{ inputs.main_r_script }}"
+
+          echo "Running: Rscript ${SCRIPT}"
+          Rscript "${SCRIPT}"
+
+      - name: Collect p1 benchmark outputs
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifact_p1_benchmark
+
+          # Copy the most useful diagnostics if they exist.
+          find . -type f \( \
+            -iname "*stability*.csv" -o \
+            -iname "*serial*correlation*.csv" -o \
+            -iname "*lag*spec*.csv" -o \
+            -iname "*gdp*sign*.csv" -o \
+            -iname "*structural*irf*summary*.csv" -o \
+            -iname "*shock*validation*.csv" -o \
+            -iname "*architecture*summary*.txt" -o \
+            -iname "*preflight*.csv" -o \
+            -iname "*irf*.pdf" -o \
+            -iname "*irf*.png" \
+          \) -not -path "./artifact_p1_benchmark/*" \
+             -exec cp --parents {} artifact_p1_benchmark/ \; || true
+
+          cat > artifact_p1_benchmark/README_p1_benchmark.txt <<'EOF'
+GPR + OIL TVP-GVAR p=1 BENCHMARK
+================================
+
+Purpose
+-------
+This run is a one-change-at-a-time lag diagnostic.
+
+ONLY intended model change:
+    domestic lag order: p = 2 -> p = 1
+
+Keep unchanged:
+    q = 1
+    GDP transformation
+    GPR construction
+    Oil transformation
+    GPR/Oil dominant block
+    GPR -> Oil ordering
+    trade weights
+    TVP structure
+    priors
+    posterior draws
+    burn-in
+    crisis dates
+    IRF horizons
+
+Primary comparison against current p=2 run
+-------------------------------------------
+1. Overall stable-draw share
+2. 2003Q1 stable-draw share
+3. 2008Q3 stable-draw share
+4. 2020Q1 stable-draw share
+5. 2022Q1 stable-draw share
+6. Residual serial-correlation rejection rate
+7. GPR shock GDP IRF signs and credible intervals
+
+Interpretation
+--------------
+If p=1 materially raises the stable-draw share without making
+residual serial correlation substantially worse, p=2 is likely
+contributing to over-parameterization / global instability.
+
+If p=1 remains severely unstable, do NOT jump directly to p=3.
+The next diagnostic should focus on the persistent global block,
+especially Oil in log level and the global stacking / companion matrix.
+EOF
+
+      - name: Upload p1 benchmark artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpr-oil-tvp-gvar-p1-benchmark-${{ github.run_id }}
+          path: artifact_p1_benchmark/
+          if-no-files-found: warn
+          retention-days: 30
