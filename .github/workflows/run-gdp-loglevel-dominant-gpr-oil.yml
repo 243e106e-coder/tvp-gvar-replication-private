@@ -40,9 +40,9 @@ on:
         required: true
         default: "10"
       gdp_dlog_scale:
-        description: "1 if GDP_DLOG=Delta log GDP; 100 if GDP_DLOG=100*Delta log GDP"
+        description: "GDP_DLOG scale divisor; current macro file uses 100*Delta log GDP"
         required: true
-        default: "1"
+        default: "100"
 
 jobs:
   estimate:
@@ -71,6 +71,9 @@ jobs:
       TVPGVAR_NEAR_UNIT_THRESHOLD: "0.98"
       TVPGVAR_G_CONDITION_WARN: "10000"
       TVPGVAR_GDP_BASE_INDEX: "100"
+      # Current macro spreadsheet stores GDP_DLOG as 100*Delta log(GDP).
+      # Hard-coded to prevent accidental scale=1 reruns.
+      TVPGVAR_GDP_DLOG_SCALE: "100"
 
     steps:
       - name: Checkout repository
@@ -210,9 +213,14 @@ jobs:
       - name: Build GDP log-level + GPR + Brent Oil input
         env:
           TVPGVAR_GPR_COLUMN: ${{ inputs.gpr_column }}
-          TVPGVAR_GDP_DLOG_SCALE: ${{ inputs.gdp_dlog_scale }}
+          TVPGVAR_GDP_DLOG_SCALE: "100"
         run: |
           set -euo pipefail
+
+          echo "GDP_DLOG scale divisor (hard-locked) = ${TVPGVAR_GDP_DLOG_SCALE}"
+          if [ "${TVPGVAR_GDP_DLOG_SCALE}" != "100" ]; then
+            echo "::warning::Current macro input is known to store GDP_DLOG as 100*Delta log GDP. Use gdp_dlog_scale=100 for the clean comparison."
+          fi
 
           # Same macro/GPR/GDP-log-level preparation as current VIX run.
           Rscript --vanilla "8.12/02b_build_14e_input_gdp_loglevel.R"
