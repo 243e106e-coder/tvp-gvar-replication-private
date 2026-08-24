@@ -1,0 +1,158 @@
+name: Diagnose Interest-Rate Channel
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Completed dominant GPR+VIX run ID"
+        required: true
+        default: "32594850147"
+        type: string
+      dates:
+        description: "Diagnostic quarters"
+        required: true
+        default: "2003Q1,2008Q3,2014Q3,2020Q1,2022Q1,2023Q4"
+        type: string
+      horizon:
+        description: "IRF horizon"
+        required: true
+        default: "12"
+        type: string
+      shock_pct:
+        description: "GPR shock normalization (%)"
+        required: true
+        default: "10"
+        type: string
+      check_cf_stability:
+        description: "Recompute counterfactual/constrained stability (1=yes)"
+        required: true
+        default: "1"
+        type: string
+      max_draws:
+        description: "0=all original stable draws; use 25 only for smoke test"
+        required: true
+        default: "0"
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+
+      - name: Download source posterior and IRF
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          set -euo pipefail
+          rm -rf prior_artifact
+          mkdir -p prior_artifact
+
+          echo "Source run: ${SOURCE_RUN_ID}"
+          echo "Available artifacts:"
+          mapfile -t ARTIFACTS < <(
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${SOURCE_RUN_ID}/artifacts" \
+              --jq '.artifacts[] | select(.expired == false) | .name'
+          )
+          printf '  %s\n' "${ARTIFACTS[@]}"
+
+          ARTIFACT_NAME=""
+          for a in "${ARTIFACTS[@]}"; do
+            if [[ "$a" == gdp-loglevel-dominant-*-${SOURCE_RUN_ID} ]]; then
+              ARTIFACT_NAME="$a"
+              break
+            fi
+          done
+          if [[ -z "$ARTIFACT_NAME" ]]; then
+            for a in "${ARTIFACTS[@]}"; do
+              if [[ "$a" == dominant-gpr-vix-tvp-gvar-${SOURCE_RUN_ID} ]]; then
+                ARTIFACT_NAME="$a"
+                break
+              fi
+            done
+          fi
+          if [[ -z "$ARTIFACT_NAME" ]]; then
+            echo "ERROR: no compatible dominant-unit artifact found."
+            exit 1
+          fi
+
+          echo "Selected artifact: ${ARTIFACT_NAME}"
+          gh run download "${SOURCE_RUN_ID}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --name "${ARTIFACT_NAME}" \
+            --dir prior_artifact
+
+          test -f prior_artifact/results/predDens_dominant_gpr_vix.rda
+          test -f prior_artifact/results/irf_dominant_gpr_vix.rda
+          ls -lh prior_artifact/results/predDens_dominant_gpr_vix.rda
+          ls -lh prior_artifact/results/irf_dominant_gpr_vix.rda
+
+      - name: Parse interest-rate diagnostic
+        run: |
+          set -euo pipefail
+          Rscript --vanilla -e '
+            parse(file="8.12/12_diagnose_interest_rate_channel.R")
+            cat("R syntax: PASS\n")
+          '
+
+      - name: Run interest-rate channel diagnostic
+        env:
+          TVPGVAR_POSTERIOR_RDA: "prior_artifact/results/predDens_dominant_gpr_vix.rda"
+          TVPGVAR_IRF_RDA: "prior_artifact/results/irf_dominant_gpr_vix.rda"
+          TVPGVAR_RATE_CF_OUT: "results/interest_rate_channel_diagnostic"
+          TVPGVAR_RATE_CF_DATES: ${{ inputs.dates }}
+          TVPGVAR_RATE_CF_HORIZON: ${{ inputs.horizon }}
+          TVPGVAR_GPR_SHOCK_PCT: ${{ inputs.shock_pct }}
+          TVPGVAR_RATE_CF_CHECK_STABILITY: ${{ inputs.check_cf_stability }}
+          TVPGVAR_RATE_CF_MAX_DRAWS: ${{ inputs.max_draws }}
+        run: |
+          set -euo pipefail
+          Rscript --vanilla "8.12/12_diagnose_interest_rate_channel.R"
+
+      - name: Show main verdicts
+        if: always()
+        run: |
+          set -euo pipefail
+          OUT="results/interest_rate_channel_diagnostic"
+          if [[ -f "$OUT/README_interest_rate_channel.txt" ]]; then
+            echo "===== README ====="
+            cat "$OUT/README_interest_rate_channel.txt"
+          fi
+          if [[ -f "$OUT/03_baseline_rate_response_sign_counts.csv" ]]; then
+            echo "===== RATE SIGN COUNTS ====="
+            cat "$OUT/03_baseline_rate_response_sign_counts.csv"
+          fi
+          if [[ -f "$OUT/05_equity_rate_channel_decision_table.csv" ]]; then
+            echo "===== EQUITY RATE-CHANNEL DECISION ====="
+            cat "$OUT/05_equity_rate_channel_decision_table.csv"
+          fi
+          if [[ -f "$OUT/08_equity_rate_cf_stable_matched_decision.csv" ]]; then
+            echo "===== CF-STABLE MATCHED ====="
+            cat "$OUT/08_equity_rate_cf_stable_matched_decision.csv"
+          fi
+          if [[ -f "$OUT/FOCUS_2022Q1_h12_equity_interest_rate_channel.csv" ]]; then
+            echo "===== 2022Q1 h12 EQUITY ====="
+            cat "$OUT/FOCUS_2022Q1_h12_equity_interest_rate_channel.csv"
+          fi
+
+      - name: Upload diagnostic results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: interest-rate-channel-${{ github.run_id }}
+          path: results/interest_rate_channel_diagnostic/
+          if-no-files-found: warn
+          retention-days: 30
