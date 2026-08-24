@@ -1,0 +1,315 @@
+name: Run GDP Log-Level Dominant GPR + Oil
+
+on:
+  workflow_dispatch:
+    inputs:
+      gpr_column:
+        description: "GPR specification"
+        required: true
+        type: choice
+        default: "LN_GPR_QMEAN"
+        options:
+          - LN_GPR_QMEAN
+          - LN_GPRT_QMEAN
+          - LN_GPRA_QMEAN
+          - LN_GPR_QMAX
+      p:
+        description: "Domestic lag order (keep 2 for the clean VIX->Oil replacement test)"
+        required: true
+        type: choice
+        default: "2"
+        options: ["1", "2"]
+      saves:
+        description: "Posterior saves"
+        required: true
+        default: "500"
+      burns:
+        description: "Burn-in draws"
+        required: true
+        default: "500"
+      thin:
+        description: "Fraction retained for IRF"
+        required: true
+        default: "0.5"
+      horizon:
+        description: "IRF horizon in quarters"
+        required: true
+        default: "12"
+      shock_pct:
+        description: "GPR impact increase in percent"
+        required: true
+        default: "10"
+      gdp_dlog_scale:
+        description: "1 if GDP_DLOG=Delta log GDP; 100 if GDP_DLOG=100*Delta log GDP"
+        required: true
+        default: "1"
+
+jobs:
+  estimate:
+    name: GDP log-level | separate dominant [GPR,Oil]
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    env:
+      TVPGVAR_MACRO_XLSX: "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+      TVPGVAR_WEIGHT_FILE: "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+      TVPGVAR_GPR_CSV: "8.12/gpr_quarterly_processed.csv"
+
+      # Uploaded IMF Brent quarterly file.
+      TVPGVAR_OIL_RAW_CSV: "8.12/IMF_Brent_quarterly_log_2000Q1_2026Q2.csv"
+      TVPGVAR_OIL_PROCESSED_CSV: "data/oil_quarterly_processed.csv"
+
+      TVPGVAR_BASE_INPUT: "data/model_input.csv"
+      TVPGVAR_DOMINANT_INPUT: "data/model_input_dominant.csv"
+      TVPGVAR_PROFILE: "GDP_LOGLEVEL_dominant_GPR_OIL"
+
+      # Keep exactly the same shrinkage / seed / diagnostics as the current VIX model.
+      TVPGVAR_B1: "8"
+      TVPGVAR_B2: "0.01"
+      TVPGVAR_KAPPA0: "-0.005"
+      TVPGVAR_SEED: "20260816"
+      TVPGVAR_NEAR_UNIT_THRESHOLD: "0.98"
+      TVPGVAR_G_CONDITION_WARN: "10000"
+      TVPGVAR_GDP_BASE_INDEX: "100"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install R packages
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::remotes
+            any::readxl
+            any::snowfall
+            any::zoo
+            any::Matrix
+            any::mvtnorm
+            any::coda
+            any::bayesm
+            any::psych
+            any::MCMCpack
+            any::mnormt
+            any::rARPACK
+            any::ggplot2
+            any::GIGrvg
+            any::dlm
+            any::Rcpp
+            any::RcppArmadillo
+
+      - name: Install compatible stochvol
+        run: |
+          Rscript -e 'remotes::install_version("stochvol", version="3.2.9", repos="https://cloud.r-project.org", upgrade="never")'
+
+      - name: Patch and install threshtvp
+        run: |
+          sed -i 's|inv_f=solve(f.t(),Vtt.t(), "std").t();|inv_f=solve(arma::mat(f.t()),arma::mat(Vtt.t()), "std").t();|' threshtvp_source/src/threshold_functions.cpp
+          R CMD INSTALL threshtvp_source
+
+      # -----------------------------------------------------------------------
+      # Important design choice:
+      # Instead of maintaining a separate fork of every established VIX script,
+      # generate the Oil counterparts mechanically from the CURRENT validated
+      # GPR+VIX code. This means the only substantive model change is VIX -> Oil.
+      # -----------------------------------------------------------------------
+      - name: Generate GPR + Oil code from current GPR + VIX templates
+        run: |
+          set -euo pipefail
+          mkdir -p R data results
+
+          test -f "8.12/prepare_data_structural_dominant_gpr_vix.R"
+          test -f "8.12/dominant_gpr_vix_irf.R"
+          test -f "8.12/run_dominant_gpr_vix_tvp_gvar.R"
+          test -f "8.12/04_build_dominant_unit_input.R"
+          test -f "8.12/13_add_oil_to_structural_input.R"
+          test -f "8.12/IMF_Brent_quarterly_log_2000Q1_2026Q2.csv"
+
+          # Data mapping: [GL_gpr, GL_vix] -> [GL_gpr, GL_oil]
+          sed \
+            -e 's/GL_vix/GL_oil/g' \
+            -e 's/global_vix/global_oil/g' \
+            -e 's/vix/oil/g' \
+            -e 's/VIX/OIL/g' \
+            "8.12/prepare_data_structural_dominant_gpr_vix.R" \
+            > "R/prepare_data_structural_dominant_gpr_oil.R"
+
+          # Structural IRF: same local 2x2 recursive identification;
+          # first dominant innovation remains GPR, second becomes Oil.
+          sed \
+            -e 's/GL_vix/GL_oil/g' \
+            -e 's/global_vix/global_oil/g' \
+            -e 's/vix/oil/g' \
+            -e 's/VIX/OIL/g' \
+            "8.12/dominant_gpr_vix_irf.R" \
+            > "R/dominant_gpr_oil_irf.R"
+
+          # Dominant input builder.
+          sed \
+            -e 's/GL_vix/GL_oil/g' \
+            -e 's/US_vix/US_oil/g' \
+            -e 's/vix/oil/g' \
+            -e 's/VIX/OIL/g' \
+            "8.12/04_build_dominant_unit_input.R" \
+            > "data/04_build_dominant_unit_input_gpr_oil_generated.R"
+
+          # Full estimator/posterior/stability/IRF pipeline.
+          # This preserves the six crisis dates, p/q handling, stable-only logic,
+          # posterior settings and all diagnostics from the established run.
+          sed \
+            -e 's/GL_vix/GL_oil/g' \
+            -e 's/global_vix/global_oil/g' \
+            -e 's/loads_on_GL_vix/loads_on_GL_oil/g' \
+            -e 's/gpr_vix/gpr_oil/g' \
+            -e 's/GPR_VIX/GPR_OIL/g' \
+            -e 's/vix/oil/g' \
+            -e 's/VIX/OIL/g' \
+            "8.12/run_dominant_gpr_vix_tvp_gvar.R" \
+            > "data/run_dominant_gpr_oil_tvp_gvar_generated.R"
+
+          # Hard checks: generated model code must contain Oil and no VIX.
+          grep -q 'GL_oil' "R/prepare_data_structural_dominant_gpr_oil.R"
+          grep -q 'GL_oil' "data/run_dominant_gpr_oil_tvp_gvar_generated.R"
+
+          if grep -R -n -E 'GL_vix|US_vix|global_vix' \
+             "R/prepare_data_structural_dominant_gpr_oil.R" \
+             "R/dominant_gpr_oil_irf.R" \
+             "data/04_build_dominant_unit_input_gpr_oil_generated.R" \
+             "data/run_dominant_gpr_oil_tvp_gvar_generated.R"; then
+            echo "ERROR: VIX model identifiers remain in generated Oil code."
+            exit 1
+          fi
+
+          cat > results/gpr_oil_template_generation_audit.txt <<'EOF'
+          GPR+Oil model generated mechanically from the current validated GPR+VIX templates.
+          Substantive global-variable replacement: VIX -> Brent Oil only.
+          Dominant block: [GL_gpr, GL_oil].
+          Recursive order: GPR -> Oil.
+          Oil transformation: natural log of quarterly Brent price level.
+          No oil differencing, growth rate, standardization, or deflation.
+          Country variables unchanged.
+          Trade weights unchanged.
+          Domestic lag p controlled only by workflow input; use p=2 for clean comparison.
+          Foreign/global lag q unchanged from the established dominant-unit code.
+          Six crisis dates unchanged.
+          Stability rule unchanged: global spectral radius < 1.
+          EOF
+
+      - name: Create dominant-unit compatible BVAR estimator
+        run: |
+          set -euo pipefail
+          Rscript --vanilla "8.12/patch_BVAR_dominant_unit.R"
+          test -f "R/BVAR_ttvp_dominant.r"
+
+      - name: Build GDP log-level + GPR + Brent Oil input
+        env:
+          TVPGVAR_GPR_COLUMN: ${{ inputs.gpr_column }}
+          TVPGVAR_GDP_DLOG_SCALE: ${{ inputs.gdp_dlog_scale }}
+        run: |
+          set -euo pipefail
+
+          # Same macro/GPR/GDP-log-level preparation as current VIX run.
+          Rscript --vanilla "8.12/02b_build_14e_input_gdp_loglevel.R"
+
+          # Replace VIX augmentation with quarterly IMF Brent + log(level).
+          Rscript --vanilla "8.12/13_add_oil_to_structural_input.R"
+
+          # Extract GPR and Oil into the separate dominant unit.
+          Rscript --vanilla "data/04_build_dominant_unit_input_gpr_oil_generated.R"
+
+          cat results/oil_input_summary.txt
+          cat results/gdp_loglevel_reconstruction_audit.csv
+
+          # Explicit input checks.
+          Rscript --vanilla -e '
+            d <- read.csv("data/model_input_dominant.csv", check.names=FALSE)
+            stopifnot(all(c("GL_gpr","GL_oil") %in% names(d)))
+            stopifnot(!any(c("GL_vix","US_vix") %in% names(d)))
+            stopifnot(identical(tail(names(d), 2L), c("GL_gpr","GL_oil")))
+            stopifnot(all(is.finite(as.matrix(d[, -1]))))
+            cat("Dominant input check passed: [GL_gpr, GL_oil].\n")
+          '
+
+      - name: Parse generated model code before MCMC
+        run: |
+          set -euo pipefail
+          Rscript --vanilla -e '
+            parse(file="8.12/13_add_oil_to_structural_input.R")
+            parse(file="R/prepare_data_structural_dominant_gpr_oil.R")
+            parse(file="R/dominant_gpr_oil_irf.R")
+            parse(file="data/04_build_dominant_unit_input_gpr_oil_generated.R")
+            parse(file="data/run_dominant_gpr_oil_tvp_gvar_generated.R")
+            parse(file="R/BVAR_ttvp_dominant.r")
+            cat("All GPR+Oil parse checks passed.\n")
+          '
+
+      - name: Run GDP log-level dominant-unit GPR + Oil TVP-GVAR
+        env:
+          TVPGVAR_P: ${{ inputs.p }}
+          TVPGVAR_SAVES: ${{ inputs.saves }}
+          TVPGVAR_BURNS: ${{ inputs.burns }}
+          TVPGVAR_THIN: ${{ inputs.thin }}
+          TVPGVAR_HORIZON: ${{ inputs.horizon }}
+          TVPGVAR_GPR_SHOCK_PCT: ${{ inputs.shock_pct }}
+        run: |
+          set -euo pipefail
+
+          # For the intended clean experiment, choose p=2 in workflow_dispatch.
+          Rscript --vanilla "data/run_dominant_gpr_oil_tvp_gvar_generated.R"
+
+          # GDP is log LEVEL in this workflow, not GDP growth.
+          rm -f results/gpr_structural_cumulative_gdp.csv
+          rm -f results/gpr_structural_cumulative_gdp_stable_only.csv
+
+          cat >> results/dominant_model_architecture_summary.txt <<'EOF'
+          GDP transformation in this run: LOG LEVEL (indexed; first sample = 100)
+          Do NOT cumulatively sum the GDP IRF: the IRF itself is the log-level effect.
+          Global block replacement experiment: VIX replaced by log Brent Oil.
+          EOF
+
+      - name: Verify Oil posterior/output names
+        if: always()
+        run: |
+          set -euo pipefail
+
+          if [ -f results/predDens_dominant_gpr_oil.rda ]; then
+            echo "Posterior found: results/predDens_dominant_gpr_oil.rda"
+          else
+            echo "Posterior not found yet (run may have failed before save)."
+          fi
+
+          for f in \
+            results/oil_input_summary.txt \
+            results/gpr_oil_template_generation_audit.txt \
+            results/dominant_model_architecture_summary.txt \
+            results/stability_summary_selected_dates.csv \
+            results/local_stability_summary_by_country.csv \
+            results/gdp_sign_diagnostic_stable_only.csv \
+            results/gpr_shock_validation.csv; do
+              if [ -f "$f" ]; then
+                echo "===== $f ====="
+                cat "$f"
+              fi
+          done
+
+      - name: Upload GDP log-level GPR + Oil artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdp-loglevel-dominant-gpr-oil-${{ inputs.gpr_column }}-${{ github.run_id }}
+          path: |
+            results/
+            data/model_input_dominant.csv
+            data/oil_quarterly_processed.csv
+            data/04_build_dominant_unit_input_gpr_oil_generated.R
+            data/run_dominant_gpr_oil_tvp_gvar_generated.R
+            R/prepare_data_structural_dominant_gpr_oil.R
+            R/dominant_gpr_oil_irf.R
+          if-no-files-found: warn
+          retention-days: 30
