@@ -1,0 +1,115 @@
+name: Country-specific lag selection
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "05_country_specific_lag_selection.R"
+      - "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+      - "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+      - "8.12/gpr_quarterly_processed.csv"
+      - "8.12/IMF_Brent_quarterly_log_2000Q1_2026Q2.csv"
+      - ".github/workflows/country_specific_lag_selection.yml"
+
+jobs:
+  lag-selection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      R_KEEP_PKG_SOURCE: yes
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install R dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::readxl
+
+      - name: Show input files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Repository root:"
+          pwd
+
+          echo
+          echo "Checking required inputs..."
+
+          required_files=(
+            "05_country_specific_lag_selection.R"
+            "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+            "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+            "8.12/gpr_quarterly_processed.csv"
+            "8.12/IMF_Brent_quarterly_log_2000Q1_2026Q2.csv"
+          )
+
+          for f in "${required_files[@]}"; do
+            if [[ ! -f "$f" ]]; then
+              echo "::error::Missing required file: $f"
+              exit 1
+            fi
+            echo "FOUND: $f"
+          done
+
+      - name: Run country-specific lag selection
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rm -rf "8.12/country_specific_lag_selection"
+
+          Rscript --vanilla "05_country_specific_lag_selection.R"
+
+      - name: Validate outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          out="8.12/country_specific_lag_selection"
+
+          required_outputs=(
+            "$out/01_country_p1_p2_model_diagnostics.csv"
+            "$out/02_equation_residual_serial_correlation.csv"
+            "$out/03_country_lag_recommendation.csv"
+            "$out/04_selected_country_lag_vector.R"
+            "$out/README_country_specific_lag_selection.txt"
+          )
+
+          echo "Checking generated outputs..."
+
+          for f in "${required_outputs[@]}"; do
+            if [[ ! -s "$f" ]]; then
+              echo "::error::Missing or empty output: $f"
+              exit 1
+            fi
+            echo "OK: $f"
+          done
+
+          echo
+          echo "Selected lag vector:"
+          cat "$out/04_selected_country_lag_vector.R"
+
+          echo
+          echo "Recommendation table:"
+          cat "$out/03_country_lag_recommendation.csv"
+
+      - name: Upload lag-selection diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: country-specific-lag-selection-${{ github.run_id }}
+          path: |
+            8.12/country_specific_lag_selection/
+          if-no-files-found: warn
+          retention-days: 30
