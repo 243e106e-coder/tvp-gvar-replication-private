@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - "05_country_specific_lag_selection.R"
+      - "8.12/05_country_specific_lag_selection.R"
       - "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
       - "8.12/Trade_Weights_14_Economies_2000_2014.csv"
       - "8.12/gpr_quarterly_processed.csv"
@@ -15,9 +15,6 @@ jobs:
   lag-selection:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
-    env:
-      R_KEEP_PKG_SOURCE: yes
 
     steps:
       - name: Checkout repository
@@ -35,19 +32,13 @@ jobs:
           packages: |
             any::readxl
 
-      - name: Show input files
+      - name: Check required inputs
         shell: bash
         run: |
           set -euo pipefail
 
-          echo "Repository root:"
-          pwd
-
-          echo
-          echo "Checking required inputs..."
-
           required_files=(
-            "05_country_specific_lag_selection.R"
+            "8.12/05_country_specific_lag_selection.R"
             "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
             "8.12/Trade_Weights_14_Economies_2000_2014.csv"
             "8.12/gpr_quarterly_processed.csv"
@@ -66,10 +57,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           rm -rf "8.12/country_specific_lag_selection"
-
-          Rscript --vanilla "05_country_specific_lag_selection.R"
+          Rscript --vanilla "8.12/05_country_specific_lag_selection.R"
 
       - name: Validate outputs
         shell: bash
@@ -77,7 +66,6 @@ jobs:
           set -euo pipefail
 
           out="8.12/country_specific_lag_selection"
-
           required_outputs=(
             "$out/01_country_p1_p2_model_diagnostics.csv"
             "$out/02_equation_residual_serial_correlation.csv"
@@ -85,8 +73,6 @@ jobs:
             "$out/04_selected_country_lag_vector.R"
             "$out/README_country_specific_lag_selection.txt"
           )
-
-          echo "Checking generated outputs..."
 
           for f in "${required_outputs[@]}"; do
             if [[ ! -s "$f" ]]; then
@@ -109,7 +95,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: country-specific-lag-selection-${{ github.run_id }}
-          path: |
-            8.12/country_specific_lag_selection/
+          path: 8.12/country_specific_lag_selection/
           if-no-files-found: warn
           retention-days: 30
