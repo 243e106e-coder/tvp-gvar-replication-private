@@ -15,16 +15,8 @@ jobs:
     timeout-minutes: 360
 
     env:
-      # ======================================================
-      # ONLY EXPERIMENTAL CHANGE:
-      # domestic lag p = 1
-      # ======================================================
       TVPGVAR_P: "1"
-
-      # Keep q unchanged
       TVPGVAR_Q: "1"
-
-      # Explicit profile label so p=1 results do not mix with p=2
       MODEL_PROFILE: "GDP_LOGLEVEL_dominant_GPR_OIL_p1_q1"
 
     steps:
@@ -120,7 +112,6 @@ jobs:
         run: |
           mkdir -p artifact_p1_benchmark
 
-          # Copy the most useful diagnostics if they exist.
           find . -type f \( \
             -iname "*stability*.csv" -o \
             -iname "*serial*correlation*.csv" -o \
@@ -135,52 +126,52 @@ jobs:
           \) -not -path "./artifact_p1_benchmark/*" \
              -exec cp --parents {} artifact_p1_benchmark/ \; || true
 
-          cat > artifact_p1_benchmark/README_p1_benchmark.txt <<'EOF'
-GPR + OIL TVP-GVAR p=1 BENCHMARK
-================================
-
-Purpose
--------
-This run is a one-change-at-a-time lag diagnostic.
-
-ONLY intended model change:
-    domestic lag order: p = 2 -> p = 1
-
-Keep unchanged:
-    q = 1
-    GDP transformation
-    GPR construction
-    Oil transformation
-    GPR/Oil dominant block
-    GPR -> Oil ordering
-    trade weights
-    TVP structure
-    priors
-    posterior draws
-    burn-in
-    crisis dates
-    IRF horizons
-
-Primary comparison against current p=2 run
--------------------------------------------
-1. Overall stable-draw share
-2. 2003Q1 stable-draw share
-3. 2008Q3 stable-draw share
-4. 2020Q1 stable-draw share
-5. 2022Q1 stable-draw share
-6. Residual serial-correlation rejection rate
-7. GPR shock GDP IRF signs and credible intervals
-
-Interpretation
---------------
-If p=1 materially raises the stable-draw share without making
-residual serial correlation substantially worse, p=2 is likely
-contributing to over-parameterization / global instability.
-
-If p=1 remains severely unstable, do NOT jump directly to p=3.
-The next diagnostic should focus on the persistent global block,
-especially Oil in log level and the global stacking / companion matrix.
-EOF
+          printf '%s\n' \
+            'GPR + OIL TVP-GVAR p=1 BENCHMARK' \
+            '================================' \
+            '' \
+            'Purpose' \
+            '-------' \
+            'This run is a one-change-at-a-time lag diagnostic.' \
+            '' \
+            'ONLY intended model change:' \
+            '    domestic lag order: p = 2 -> p = 1' \
+            '' \
+            'Keep unchanged:' \
+            '    q = 1' \
+            '    GDP transformation' \
+            '    GPR construction' \
+            '    Oil transformation' \
+            '    GPR/Oil dominant block' \
+            '    GPR -> Oil ordering' \
+            '    trade weights' \
+            '    TVP structure' \
+            '    priors' \
+            '    posterior draws' \
+            '    burn-in' \
+            '    crisis dates' \
+            '    IRF horizons' \
+            '' \
+            'Primary comparison against current p=2 run' \
+            '-------------------------------------------' \
+            '1. Overall stable-draw share' \
+            '2. 2003Q1 stable-draw share' \
+            '3. 2008Q3 stable-draw share' \
+            '4. 2020Q1 stable-draw share' \
+            '5. 2022Q1 stable-draw share' \
+            '6. Residual serial-correlation rejection rate' \
+            '7. GPR shock GDP IRF signs and credible intervals' \
+            '' \
+            'Interpretation' \
+            '--------------' \
+            'If p=1 materially raises the stable-draw share without making' \
+            'residual serial correlation substantially worse, p=2 is likely' \
+            'contributing to over-parameterization / global instability.' \
+            '' \
+            'If p=1 remains severely unstable, do NOT jump directly to p=3.' \
+            'The next diagnostic should focus on the persistent global block,' \
+            'especially Oil in log level and the global stacking / companion matrix.' \
+            > artifact_p1_benchmark/README_p1_benchmark.txt
 
       - name: Upload p1 benchmark artifact
         if: always()
