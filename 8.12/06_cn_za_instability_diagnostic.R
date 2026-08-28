@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 
 # ============================================================
-# CN + ZA local instability diagnostic
+# CN + ZA local instability diagnostic (v1.1)
 # JP as borderline control
 #
 # Purpose:
@@ -282,7 +282,7 @@ fit_local_varx <- function(panel, cc, p) {
 
   rows <- (maxlag + 1L):Tn
 
-  D <- data.frame(const = 1)
+  D <- data.frame(const = rep(1, length(rows)))
 
   # Domestic lags
   for(L in seq_len(p)) {
