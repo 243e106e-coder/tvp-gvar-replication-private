@@ -1,0 +1,104 @@
+name: CN-ZA instability diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "8.12/06_cn_za_instability_diagnostic.R"
+      - "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+      - "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+      - "8.12/gpr_quarterly_processed.csv"
+      - "8.12/IMF_Brent_quarterly_log_2000Q1_2026Q2.csv"
+      - ".github/workflows/cn_za_instability_diagnostic.yml"
+
+jobs:
+  instability-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install R dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::readxl
+
+      - name: Check required inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_files=(
+            "8.12/06_cn_za_instability_diagnostic.R"
+            "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+            "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+            "8.12/gpr_quarterly_processed.csv"
+            "8.12/IMF_Brent_quarterly_log_2000Q1_2026Q2.csv"
+          )
+
+          for f in "${required_files[@]}"; do
+            if [[ ! -f "$f" ]]; then
+              echo "::error::Missing required file: $f"
+              exit 1
+            fi
+            echo "FOUND: $f"
+          done
+
+      - name: Run CN-ZA instability diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "8.12/cn_za_instability_diagnostic"
+          Rscript --vanilla "8.12/06_cn_za_instability_diagnostic.R"
+
+      - name: Validate outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          out="8.12/cn_za_instability_diagnostic"
+
+          required_outputs=(
+            "$out/01_local_stability_summary.csv"
+            "$out/02_companion_eigenvalues.csv"
+            "$out/03_domestic_lag_coefficient_norms.csv"
+            "$out/04_equation_persistence_summary.csv"
+            "$out/05_variable_univariate_persistence.csv"
+            "$out/06_counterfactual_zero_block_stability.csv"
+            "$out/07_suspect_ranking.csv"
+            "$out/README_cn_za_instability_diagnostic.txt"
+          )
+
+          for f in "${required_outputs[@]}"; do
+            if [[ ! -s "$f" ]]; then
+              echo "::error::Missing or empty output: $f"
+              exit 1
+            fi
+            echo "OK: $f"
+          done
+
+          echo
+          echo "=== Stability summary ==="
+          cat "$out/01_local_stability_summary.csv"
+
+          echo
+          echo "=== Top suspect ranking ==="
+          cat "$out/07_suspect_ranking.csv"
+
+      - name: Upload instability diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cn-za-instability-diagnostic-${{ github.run_id }}
+          path: 8.12/cn_za_instability_diagnostic/
+          if-no-files-found: warn
+          retention-days: 30
