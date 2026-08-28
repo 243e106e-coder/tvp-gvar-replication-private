@@ -1,0 +1,96 @@
+name: Lag diagnostic exact reconciliation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "8.12/05_country_specific_lag_selection.R"
+      - "8.12/06_cn_za_instability_diagnostic.R"
+      - "8.12/07_lag_diagnostic_reconciliation.R"
+      - "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+      - "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+      - "8.12/gpr_quarterly_processed.csv"
+      - "8.12/IMF_Brent_quarterly_log_2000Q1_2026Q2.csv"
+      - ".github/workflows/lag_diagnostic_reconciliation.yml"
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install R dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::readxl
+
+      - name: Check required inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            "8.12/05_country_specific_lag_selection.R"
+            "8.12/06_cn_za_instability_diagnostic.R"
+            "8.12/07_lag_diagnostic_reconciliation.R"
+            "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+            "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+            "8.12/gpr_quarterly_processed.csv"
+            "8.12/IMF_Brent_quarterly_log_2000Q1_2026Q2.csv"
+          )
+          for f in "${files[@]}"; do
+            test -f "$f" || { echo "::error::Missing $f"; exit 1; }
+            echo "FOUND: $f"
+          done
+
+      - name: Run exact reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "8.12/lag_reconciliation"
+          Rscript --vanilla "8.12/07_lag_diagnostic_reconciliation.R"
+
+      - name: Validate reconciliation outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="8.12/lag_reconciliation"
+          files=(
+            "$out/01_exact_reconciliation_summary.csv"
+            "$out/02_base_sample_comparison.csv"
+            "$out/03_domestic_data_comparison.csv"
+            "$out/04_A_and_companion_matrices_long.csv"
+            "$out/05_eigenvalue_comparison.csv"
+            "$out/06_return_object_structure.csv"
+            "$out/README_reconciliation.txt"
+          )
+          for f in "${files[@]}"; do
+            test -s "$f" || { echo "::error::Missing/empty $f"; exit 1; }
+            echo "OK: $f"
+          done
+
+          echo
+          echo "=== RECONCILIATION SUMMARY ==="
+          cat "$out/01_exact_reconciliation_summary.csv"
+
+          echo
+          echo "=== DIAGNOSIS ==="
+          cat "$out/README_reconciliation.txt"
+
+      - name: Upload reconciliation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lag-diagnostic-reconciliation-${{ github.run_id }}
+          path: 8.12/lag_reconciliation/
+          if-no-files-found: warn
+          retention-days: 30
