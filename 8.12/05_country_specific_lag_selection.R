@@ -197,9 +197,9 @@ build_macro_mapping <- function(raw,max_header=6L) {
     audit <- data.frame(column=seq_len(n),country=country,variable=variable,stringsAsFactors=FALSE)
     required_ok <- 0L
     for(cc in COUNTRIES) {
-      vv <- variable[country==cc]
-      required_ok <- required_ok + as.integer(any(vv %in% c("y","y_dlog"))) +
-        sum(vapply(c("dp","r","de","deq"),function(v) any(vv==v),logical(1)))
+      vv <- variable[!is.na(country) & country==cc]
+      required_ok <- required_ok + as.integer(any(vv %in% c("y","y_dlog"), na.rm=TRUE)) +
+        sum(vapply(c("dp","r","de","deq"),function(v) any(vv==v, na.rm=TRUE),logical(1)))
     }
     score <- required_ok + 10*date_rate
     if(score>best_score) best <- list(h=h,date_col=date_col,date_rate=date_rate,audit=audit,score=score,required_ok=required_ok)
@@ -226,9 +226,9 @@ read_macro_table <- function(path,sheet=1) {
 
   missing <- character()
   for(cc in COUNTRIES) {
-    vv <- audit$variable[audit$country==cc]
-    if(!any(vv %in% c("y","y_dlog"))) missing <- c(missing,paste0(cc,":y/y_dlog"))
-    for(v in c("dp","r","de","deq")) if(!any(vv==v)) missing <- c(missing,paste0(cc,":",v))
+    vv <- audit$variable[!is.na(audit$country) & audit$country==cc]
+    if(!any(vv %in% c("y","y_dlog"), na.rm=TRUE)) missing <- c(missing,paste0(cc,":y/y_dlog"))
+    for(v in c("dp","r","de","deq")) if(!any(vv==v, na.rm=TRUE)) missing <- c(missing,paste0(cc,":",v))
   }
   if(best$date_rate<0.80) missing <- c(missing,"DATE_COLUMN")
   if(length(missing)) {
