@@ -236,8 +236,7 @@ score_sheet_candidate <- function(path, sheet) {
     "TURKEY","TURKIYE","UNITED STATES","USA","US","SOUTH AFRICA"
   ))
   country_hits <- sum(vapply(country_aliases, function(z) {
-    any(grepl(paste0("(^|[^A-Z0-9])", gsub("([.^$|()\\[\\]{}*+?\\\\])","\\\\\\1", toupper(z)),
-                     "([^A-Z0-9]|$)"), flat))
+    any(grepl(toupper(z), flat, fixed = TRUE))
   }, logical(1)))
 
   variable_aliases <- c(
