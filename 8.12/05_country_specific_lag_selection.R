@@ -2,7 +2,7 @@
 
 # ============================================================
 # Country-specific lag selection for GPR + Brent GVAR / TVP-GVAR
-# v3: robust macro Excel adapter + persistent diagnostics
+# v3.4: robust macro Excel adapter + persistent diagnostics
 # ============================================================
 
 options(stringsAsFactors = FALSE, warn = 1)
@@ -28,8 +28,6 @@ GPR_COL_EXACT <- "LN_GPR_QMEAN"
 GDP_DLOG_DIVISOR <- 100
 
 dir.create(OUT_DIR, recursive=TRUE, showWarnings=FALSE)
-
-dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
 stopf <- function(...) stop(sprintf(...), call.=FALSE)
 msg <- function(...) cat(sprintf(...), "\n")
@@ -318,7 +316,7 @@ read_macro_table <- function(path,sheet=1) {
 
   if(!file.exists(path)) stopf("Macro file not found: %s",path)
   if(!requireNamespace("readxl",quietly=TRUE)) stopf("Package readxl is required")
-  raw <- as.data.frame(readxl::read_excel(path,sheet=sheet,col_names=FALSE,.name_repair="minimal",guess_max=1000),check.names=FALSE)
+  raw <- as.data.frame(readxl::read_excel(path,sheet=sheet_to_use,col_names=FALSE,.name_repair="minimal",guess_max=1000),check.names=FALSE)
   save_header_preview(raw,8L)
   best <- build_macro_mapping(raw,6L)
   if(is.null(best)) stopf("Could not inspect macro header")
