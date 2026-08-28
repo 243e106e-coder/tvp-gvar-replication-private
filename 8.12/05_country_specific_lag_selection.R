@@ -2,7 +2,7 @@
 
 # ============================================================
 # Country-specific lag selection for GPR + Brent GVAR / TVP-GVAR
-# v3.4: robust macro Excel adapter + persistent diagnostics
+# v3.5: direct MODEL_WIDE parser + robust fallback diagnostics
 # ============================================================
 
 options(stringsAsFactors = FALSE, warn = 1)
@@ -311,11 +311,118 @@ detect_macro_sheet <- function(path) {
   best$sheet
 }
 
+
+parse_model_wide_direct <- function(path, sheet) {
+  # Preferred adapter for MODEL_WIDE_* sheets:
+  # one header row, 1 quarter column + 14 economies x 5 variables.
+  df <- as.data.frame(
+    readxl::read_excel(path, sheet=sheet, col_names=TRUE, .name_repair="minimal", guess_max=1000),
+    check.names=FALSE
+  )
+  if(ncol(df) < 2L) return(NULL)
+
+  nms <- trimws(names(df))
+  nn  <- toupper(gsub("[^A-Z0-9]+","_",nms))
+  nn  <- gsub("^_+|_+$","",nn)
+
+  # Date / quarter column.
+  date_rates <- vapply(df, quarter_parse_rate, numeric(1))
+  date_rates[!is.finite(date_rates)] <- 0
+  date_col <- if(length(date_rates)) which.max(date_rates) else NA_integer_
+  date_rate <- if(!is.na(date_col)) date_rates[date_col] else 0
+
+  # Canonical model-variable patterns used in the workbook.
+  var_patterns <- list(
+    y_dlog = c("GDP_DLOG","GDPDLOG"),
+    dp     = c("CPI_DLOG","CPIDLOG"),
+    r      = c("RATE_LEVEL","RATELEVEL"),
+    de     = c("REER_DLOG","REERDLOG"),
+    deq    = c("EQ_RETURN","EQRETURN")
+  )
+
+  country <- rep(NA_character_, length(nms))
+  variable <- rep(NA_character_, length(nms))
+
+  for(j in seq_along(nms)) {
+    z <- nn[j]
+    if(!nzchar(z)) next
+
+    # Require country code as a delimited prefix/suffix token, not a substring.
+    for(cc in COUNTRIES) {
+      ccu <- toupper(cc)
+      if(grepl(paste0("^", ccu, "_"), z) ||
+         grepl(paste0("_", ccu, "$"), z) ||
+         identical(z, ccu)) {
+        country[j] <- cc
+        break
+      }
+    }
+
+    # Canonical variable name can appear after or before country code.
+    for(v in names(var_patterns)) {
+      pats <- var_patterns[[v]]
+      if(any(vapply(pats, function(p)
+        grepl(paste0("(^|_)", p, "($|_)"), z), logical(1)))) {
+        variable[j] <- v
+        break
+      }
+    }
+  }
+
+  audit <- data.frame(
+    column=seq_along(nms),
+    raw_name=nms,
+    normalized_name=nn,
+    country=country,
+    variable=variable,
+    header_rows=1L,
+    date_candidate=seq_along(nms)==date_col,
+    stringsAsFactors=FALSE
+  )
+
+  required_ok <- 0L
+  for(cc in COUNTRIES) {
+    vv <- variable[!is.na(country) & country==cc]
+    required_ok <- required_ok +
+      as.integer(any(vv=="y_dlog", na.rm=TRUE)) +
+      sum(vapply(c("dp","r","de","deq"),
+                 function(v) any(vv==v, na.rm=TRUE), logical(1)))
+  }
+
+  # Success only when the structure is essentially the expected 14x5 panel.
+  if(required_ok < 70L || date_rate < 0.80) {
+    write.csv(audit,
+              file.path(OUT_DIR,"00_macro_direct_wide_audit.csv"),
+              row.names=FALSE, na="")
+    msg("[macro] direct-wide parser incomplete: mapped=%d/70; date parse=%.1f%%",
+        required_ok, 100*date_rate)
+    return(NULL)
+  }
+
+  write.csv(audit,
+            file.path(OUT_DIR,"00_macro_direct_wide_audit.csv"),
+            row.names=FALSE, na="")
+  msg("[macro] direct-wide parser SUCCESS: mapped=%d/70; date parse=%.1f%%",
+      required_ok, 100*date_rate)
+
+  # Return in the same shape expected by extract_macro_long().
+  list(
+    data=df,
+    qid=quarter_id(df[[date_col]]),
+    audit=audit
+  )
+}
+
 read_macro_table <- function(path,sheet=1) {
   sheet_to_use <- if (is.null(MACRO_SHEET)) detect_macro_sheet(MACRO_PATH) else MACRO_SHEET
 
   if(!file.exists(path)) stopf("Macro file not found: %s",path)
   if(!requireNamespace("readxl",quietly=TRUE)) stopf("Package readxl is required")
+
+  direct <- parse_model_wide_direct(path, sheet_to_use)
+  if(!is.null(direct)) return(direct)
+
+  msg("[macro] falling back to multi-row header parser")
   raw <- as.data.frame(readxl::read_excel(path,sheet=sheet_to_use,col_names=FALSE,.name_repair="minimal",guess_max=1000),check.names=FALSE)
   save_header_preview(raw,8L)
   best <- build_macro_mapping(raw,6L)
@@ -349,7 +456,7 @@ read_macro_table <- function(path,sheet=1) {
 extract_macro_long <- function(obj) {
   raw <- obj$data; qid <- obj$qid; audit <- obj$audit; out <- list()
   for(cc in COUNTRIES) {
-    aa <- audit[audit$country==cc,]
+    aa <- audit[!is.na(audit$country) & audit$country==cc,,drop=FALSE]
     pick <- function(v) { j <- aa$column[aa$variable==v]; if(length(j)) j[1] else NA_integer_ }
     jy <- pick("y"); jyd <- pick("y_dlog"); jdp <- pick("dp"); jr <- pick("r"); jde <- pick("de"); jeq <- pick("deq")
     if(is.na(jy) && is.na(jyd)) stopf("No GDP variable for %s",cc)
