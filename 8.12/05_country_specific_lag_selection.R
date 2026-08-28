@@ -8,7 +8,7 @@
 options(stringsAsFactors = FALSE, warn = 1)
 
 MACRO_PATH  <- "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
-MACRO_SHEET <- 1
+MACRO_SHEET <- NULL  # NULL = auto-detect the data sheet
 WEIGHT_PATH <- "8.12/Trade_Weights_14_Economies_2000_2014.csv"
 GPR_PATH    <- "8.12/gpr_quarterly_processed.csv"
 OIL_PATH    <- "8.12/IMF_Brent_quarterly_log_2000Q1_2026Q2.csv"
@@ -28,6 +28,8 @@ GPR_COL_EXACT <- "LN_GPR_QMEAN"
 GDP_DLOG_DIVISOR <- 100
 
 dir.create(OUT_DIR, recursive=TRUE, showWarnings=FALSE)
+
+dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
 
 stopf <- function(...) stop(sprintf(...), call.=FALSE)
 msg <- function(...) cat(sprintf(...), "\n")
@@ -208,7 +210,113 @@ build_macro_mapping <- function(raw,max_header=6L) {
   best
 }
 
+
+score_sheet_candidate <- function(path, sheet) {
+  raw <- tryCatch(
+    readxl::read_excel(path, sheet = sheet, col_names = FALSE, n_max = 20),
+    error = function(e) NULL
+  )
+  if (is.null(raw) || ncol(raw) == 0L || nrow(raw) == 0L) {
+    return(data.frame(
+      sheet = sheet, score = -Inf, quarter_rate = 0, nrow_preview = 0,
+      ncol_preview = 0, country_hits = 0, variable_hits = 0,
+      data_like_rows = 0, stringsAsFactors = FALSE
+    ))
+  }
+
+  x <- as.data.frame(raw, stringsAsFactors = FALSE)
+  flat <- toupper(trimws(as.character(unlist(x, use.names = FALSE))))
+  flat <- flat[!is.na(flat) & nzchar(flat)]
+
+  country_aliases <- unique(c(
+    COUNTRIES,
+    "AUSTRALIA","BRAZIL","CANADA","SWITZERLAND","CHINA",
+    "EURO AREA","EUROAREA","UNITED KINGDOM","UK",
+    "JAPAN","KOREA","SOUTH KOREA","NORWAY","SINGAPORE",
+    "TURKEY","TURKIYE","UNITED STATES","USA","US","SOUTH AFRICA"
+  ))
+  country_hits <- sum(vapply(country_aliases, function(z) {
+    any(grepl(paste0("(^|[^A-Z0-9])", gsub("([.^$|()\\[\\]{}*+?\\\\])","\\\\\\1", toupper(z)),
+                     "([^A-Z0-9]|$)"), flat))
+  }, logical(1)))
+
+  variable_aliases <- c(
+    "GDP_DLOG","GDP","REAL GDP","CPI_DLOG","CPI","INFLATION",
+    "RATE_LEVEL","SHORT RATE","INTEREST RATE","REER_DLOG","REER",
+    "EQ_RETURN","EQUITY","STOCK","SHARE PRICE"
+  )
+  variable_hits <- sum(vapply(variable_aliases, function(z) {
+    any(grepl(toupper(z), flat, fixed = TRUE))
+  }, logical(1)))
+
+  q_rates <- vapply(x, function(z) {
+    out <- tryCatch(quarter_id(z), error = function(e) rep(NA_integer_, length(z)))
+    mean(!is.na(out))
+  }, numeric(1))
+  quarter_rate <- if (length(q_rates)) max(q_rates, na.rm = TRUE) else 0
+  if (!is.finite(quarter_rate)) quarter_rate <- 0
+
+  # Data sheets usually contain many numeric/date-like cells beyond the first few rows.
+  data_like_rows <- sum(apply(x, 1, function(r) {
+    rr <- suppressWarnings(as.numeric(as.character(r)))
+    sum(is.finite(rr)) >= max(2, floor(length(r) * 0.20))
+  }), na.rm = TRUE)
+
+  score <- 100 * quarter_rate + 4 * country_hits + 3 * variable_hits +
+    min(ncol(x), 100) / 10 + min(data_like_rows, 20)
+
+  data.frame(
+    sheet = sheet,
+    score = score,
+    quarter_rate = quarter_rate,
+    nrow_preview = nrow(x),
+    ncol_preview = ncol(x),
+    country_hits = country_hits,
+    variable_hits = variable_hits,
+    data_like_rows = data_like_rows,
+    stringsAsFactors = FALSE
+  )
+}
+
+detect_macro_sheet <- function(path) {
+  sheets <- readxl::excel_sheets(path)
+  if (!length(sheets)) stopf("No sheets found in macro workbook: %s", path)
+
+  audit <- do.call(rbind, lapply(sheets, function(s) score_sheet_candidate(path, s)))
+  audit <- audit[order(-audit$score), , drop = FALSE]
+  write.csv(audit,
+            file.path(OUT_DIR, "00_macro_sheet_selection_audit.csv"),
+            row.names = FALSE, na = "")
+
+  cat("[macro] workbook sheets:", paste(sheets, collapse = " | "), "\n")
+  cat("[macro] sheet ranking:\n")
+  print(audit, row.names = FALSE)
+
+  best <- audit[1, , drop = FALSE]
+  if (!is.finite(best$score)) {
+    stopf("Could not inspect any sheet in macro workbook.")
+  }
+
+  # Safety gate: require at least some evidence of quarterly/data-panel content.
+  if (best$quarter_rate < 0.25 && best$country_hits < 2 && best$variable_hits < 3) {
+    stopf(
+      "Could not identify a plausible macro data sheet. Best sheet='%s', score=%.2f, quarter_rate=%.1f%%, country_hits=%d, variable_hits=%d. See 00_macro_sheet_selection_audit.csv",
+      best$sheet, best$score, 100 * best$quarter_rate,
+      best$country_hits, best$variable_hits
+    )
+  }
+
+  cat(sprintf(
+    "[macro] selected sheet='%s' (score=%.2f; quarter_rate=%.1f%%; country_hits=%d; variable_hits=%d)\n",
+    best$sheet, best$score, 100 * best$quarter_rate,
+    best$country_hits, best$variable_hits
+  ))
+  best$sheet
+}
+
 read_macro_table <- function(path,sheet=1) {
+  sheet_to_use <- if (is.null(MACRO_SHEET)) detect_macro_sheet(MACRO_PATH) else MACRO_SHEET
+
   if(!file.exists(path)) stopf("Macro file not found: %s",path)
   if(!requireNamespace("readxl",quietly=TRUE)) stopf("Package readxl is required")
   raw <- as.data.frame(readxl::read_excel(path,sheet=sheet,col_names=FALSE,.name_repair="minimal",guess_max=1000),check.names=FALSE)
