@@ -1,0 +1,102 @@
+name: Design matrix exact reconciliation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "8.12/05_country_specific_lag_selection.R"
+      - "8.12/06_cn_za_instability_diagnostic.R"
+      - "8.12/08_design_matrix_reconciliation.R"
+      - "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+      - "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+      - "8.12/gpr_quarterly_processed.csv"
+      - "8.12/IMF_Brent_quarterly_log_2000Q1_2026Q2.csv"
+      - ".github/workflows/design_matrix_reconciliation.yml"
+
+jobs:
+  reconcile-design:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+
+      - name: Install R dependencies
+        uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::readxl
+
+      - name: Check required files
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(
+            "8.12/05_country_specific_lag_selection.R"
+            "8.12/06_cn_za_instability_diagnostic.R"
+            "8.12/08_design_matrix_reconciliation.R"
+            "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+            "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+            "8.12/gpr_quarterly_processed.csv"
+            "8.12/IMF_Brent_quarterly_log_2000Q1_2026Q2.csv"
+          )
+          for f in "${files[@]}"; do
+            test -f "$f" || { echo "::error::Missing $f"; exit 1; }
+            echo "FOUND: $f"
+          done
+
+      - name: Run design-matrix reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf "8.12/design_matrix_reconciliation"
+          Rscript --vanilla "8.12/08_design_matrix_reconciliation.R"
+
+      - name: Validate outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          out="8.12/design_matrix_reconciliation"
+
+          required=(
+            "$out/01_design_matrix_summary.csv"
+            "$out/02_lmfit_call_inventory.csv"
+            "$out/03_design_column_inventory.csv"
+            "$out/05_columnwise_design_comparison.csv"
+            "$out/06_rowwise_design_difference.csv"
+            "$out/07_top_200_design_differences.csv"
+            "$out/README_design_matrix_reconciliation.txt"
+          )
+
+          for f in "${required[@]}"; do
+            test -f "$f" || { echo "::error::Missing $f"; exit 1; }
+            echo "OK: $f"
+          done
+
+          echo
+          echo "=== DESIGN MATRIX SUMMARY ==="
+          cat "$out/01_design_matrix_summary.csv"
+
+          echo
+          echo "=== COLUMNWISE COMPARISON ==="
+          head -40 "$out/05_columnwise_design_comparison.csv" || true
+
+          echo
+          echo "=== INTERPRETATION ==="
+          cat "$out/README_design_matrix_reconciliation.txt"
+
+      - name: Upload design reconciliation artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: design-matrix-reconciliation-${{ github.run_id }}
+          path: 8.12/design_matrix_reconciliation/
+          if-no-files-found: warn
+          retention-days: 30
