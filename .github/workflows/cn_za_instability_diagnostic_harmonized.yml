@@ -1,0 +1,40 @@
+name: Harmonized CN ZA stability diagnostic
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "8.12/05_country_specific_lag_selection.R"
+      - "8.12/06_cn_za_instability_diagnostic.R"
+      - "8.12/06_cn_za_instability_diagnostic_HARMONIZED.R"
+      - ".github/workflows/cn_za_instability_diagnostic_harmonized.yml"
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::readxl
+      - name: Run harmonized diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript --vanilla 8.12/06_cn_za_instability_diagnostic_HARMONIZED.R
+      - name: Show stability summary
+        if: success()
+        run: cat 8.12/cn_za_instability_diagnostic_harmonized/01_local_stability_summary.csv
+      - name: Upload diagnostic artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cn-za-instability-harmonized-${{ github.run_id }}
+          path: 8.12/cn_za_instability_diagnostic_harmonized/
+          if-no-files-found: warn
+          retention-days: 30
