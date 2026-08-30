@@ -1,0 +1,33 @@
+name: Global GVAR stability diagnostic
+
+on:
+  workflow_dispatch:
+
+jobs:
+  global-stability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::readxl
+      - name: Run global stability diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          Rscript --vanilla 8.12/09_global_gvar_stability_diagnostic.R
+      - name: Show global stability results
+        run: cat 8.12/global_gvar_stability_diagnostic/01_global_stability_summary.csv
+      - name: Upload global stability artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: global-gvar-stability-${{ github.run_id }}
+          path: 8.12/global_gvar_stability_diagnostic/
+          if-no-files-found: warn
+          retention-days: 30
