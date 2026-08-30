@@ -1,14 +1,21 @@
 #!/usr/bin/env Rscript
 
 # ============================================================
-# Exact OLS design-matrix reconciliation
-# 05_country_specific_lag_selection.R
-# vs 06_cn_za_instability_diagnostic.R
+# 08_design_matrix_reconciliation.R  v2.0
 #
-# IMPORTANT:
-# - Does NOT change the model.
-# - Captures the ACTUAL X and y passed to stats::lm.fit().
-# - Main focus: CN p=2; also ZA p=2 and JP p=1 as controls.
+# Direct design-matrix reconciliation:
+#   05_country_specific_lag_selection.R
+#   vs
+#   06_cn_za_instability_diagnostic.R
+#
+# NO MODEL CHANGES.
+# This script reproduces the design matrices exactly from the
+# two currently implemented fit functions and compares them.
+#
+# Focus:
+#   CN p=2
+#   ZA p=2
+#   JP p=1
 # ============================================================
 
 options(stringsAsFactors = FALSE, warn = 1)
@@ -18,613 +25,504 @@ SCRIPT_06 <- "8.12/06_cn_za_instability_diagnostic.R"
 OUT_DIR   <- "8.12/design_matrix_reconciliation"
 
 CASES <- data.frame(
-  country = c("CN", "ZA", "JP"),
-  p       = c(2L, 2L, 1L),
+  country = c("CN","ZA","JP"),
+  p = c(2L,2L,1L),
   stringsAsFactors = FALSE
 )
 
-dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
+dir.create(OUT_DIR, recursive=TRUE, showWarnings=FALSE)
 
-stopf <- function(...) stop(sprintf(...), call. = FALSE)
-msg   <- function(...) cat(sprintf(...), "\n")
+stopf <- function(...) stop(sprintf(...), call.=FALSE)
+msg <- function(...) cat(sprintf(...), "\n")
 
 if(!file.exists(SCRIPT_05)) stopf("Missing %s", SCRIPT_05)
 if(!file.exists(SCRIPT_06)) stopf("Missing %s", SCRIPT_06)
 
-# ------------------------------------------------------------
-# Helpers
-# ------------------------------------------------------------
-
 qid_label <- function(qid) {
-  yr <- (qid - 1L) %/% 4L
-  qq <- qid - 4L * yr
+  yr <- (qid-1L)%/%4L
+  qq <- qid - 4L*yr
   sprintf("%dQ%d", yr, qq)
 }
 
-norm_col <- function(x) {
-  x <- tolower(gsub("[^a-z0-9]+", "_", as.character(x)))
-  gsub("^_+|_+$", "", x)
-}
-
-as_num_matrix <- function(x) {
-  x <- as.matrix(x)
-  storage.mode(x) <- "double"
-  x
-}
-
-same_numeric <- function(a, b, tol = 1e-12) {
-  if(length(a) != length(b)) return(FALSE)
-  ok_na <- is.na(a) == is.na(b)
-  if(!all(ok_na)) return(FALSE)
-  ii <- which(!is.na(a) & !is.na(b))
-  if(!length(ii)) return(TRUE)
-  max(abs(a[ii] - b[ii])) <= tol
-}
-
-max_abs_diff <- function(a, b) {
-  if(length(a) != length(b)) return(Inf)
-  z <- abs(as.numeric(a) - as.numeric(b))
-  if(!length(z) || all(is.na(z))) return(NA_real_)
-  max(z, na.rm = TRUE)
-}
-
-# Find exact quarter rows by matching a captured dependent variable vector
-# against the country domestic series. We use all 5 equations jointly where
-# possible; this is robust to repeated values in one variable.
-infer_rows_from_Y <- function(Ycap, Xdom, qid, vars) {
-  Ycap <- as_num_matrix(Ycap)
-  Xdom <- as_num_matrix(Xdom)
-
-  if(ncol(Ycap) == 1L) {
-    # One equation was captured. Try each domestic variable and every
-    # contiguous window of matching length; retain all exact/near matches.
-    n <- nrow(Ycap)
-    candidates <- list()
-    kk <- 1L
-    for(j in seq_len(ncol(Xdom))) {
-      if(nrow(Xdom) < n) next
-      for(s in seq_len(nrow(Xdom) - n + 1L)) {
-        idx <- s:(s+n-1L)
-        a <- Xdom[idx, j]
-        b <- Ycap[,1]
-        good <- is.finite(a) & is.finite(b)
-        if(sum(good) < max(5L, floor(0.8*n))) next
-        d <- max(abs(a[good] - b[good]), na.rm=TRUE)
-        if(is.finite(d) && d < 1e-10) {
-          candidates[[kk]] <- list(var=colnames(Xdom)[j], idx=idx, diff=d)
-          kk <- kk + 1L
-        }
-      }
-    }
-    if(length(candidates)) {
-      z <- candidates[[1L]]
-      return(list(rows=z$idx, qid=qid[z$idx], matched_by=z$var,
-                  maxdiff=z$diff, ambiguous=length(candidates)>1L))
-    }
-    return(list(rows=integer(), qid=integer(), matched_by=NA_character_,
-                maxdiff=NA_real_, ambiguous=TRUE))
-  }
-
-  list(rows=integer(), qid=integer(), matched_by=NA_character_,
-       maxdiff=NA_real_, ambiguous=TRUE)
-}
-
-# ------------------------------------------------------------
-# Capture actual stats::lm.fit(x, y) calls.
-#
-# trace() is used only during one targeted fit and removed immediately.
-# ------------------------------------------------------------
-
-capture_lmfit_calls <- function(expr, label) {
-  cap <- new.env(parent = emptyenv())
-  cap$calls <- list()
-
-  assign(".DMR_CAPTURE_ENV", cap, envir = .GlobalEnv)
-
-  tracer_expr <- quote({
-    .ce <- get(".DMR_CAPTURE_ENV", envir = .GlobalEnv)
-    .idx <- length(.ce$calls) + 1L
-
-    .xx <- tryCatch(as.matrix(x), error=function(e) NULL)
-    .yy <- tryCatch(as.matrix(y), error=function(e) {
-      tryCatch(matrix(as.numeric(y), ncol=1L), error=function(e2) NULL)
-    })
-
-    .ce$calls[[.idx]] <- list(
-      x = .xx,
-      y = .yy,
-      nrow_x = if(is.null(.xx)) NA_integer_ else nrow(.xx),
-      ncol_x = if(is.null(.xx)) NA_integer_ else ncol(.xx),
-      nrow_y = if(is.null(.yy)) NA_integer_ else nrow(.yy),
-      ncol_y = if(is.null(.yy)) NA_integer_ else ncol(.yy),
-      colnames_x = if(is.null(.xx)) character() else colnames(.xx)
-    )
-  })
-
-  ns <- asNamespace("stats")
-  trace("lm.fit", tracer = tracer_expr, print = FALSE, where = ns)
-  on.exit({
-    try(untrace("lm.fit", where = ns), silent = TRUE)
-    if(exists(".DMR_CAPTURE_ENV", envir=.GlobalEnv, inherits=FALSE))
-      rm(".DMR_CAPTURE_ENV", envir=.GlobalEnv)
-  }, add = TRUE)
-
-  result <- eval.parent(substitute(expr))
-
-  untrace("lm.fit", where = ns)
-  if(exists(".DMR_CAPTURE_ENV", envir=.GlobalEnv, inherits=FALSE))
-    rm(".DMR_CAPTURE_ENV", envir=.GlobalEnv)
-
-  list(result=result, calls=cap$calls, label=label)
-}
-
-select_main_design <- function(calls) {
-  if(!length(calls)) return(NULL)
-
-  good <- which(vapply(calls, function(z)
-    !is.null(z$x) && !is.null(z$y) &&
-      nrow(z$x) >= 20L && ncol(z$x) >= 5L &&
-      nrow(z$x) == nrow(z$y),
-    logical(1)))
-
-  if(!length(good)) return(NULL)
-
-  # Country VAR equations normally repeat the same X for 5 equations.
-  # Prefer the largest-column design, then largest sample.
-  score <- vapply(calls[good], function(z)
-    100000 * ncol(z$x) + nrow(z$x), numeric(1))
-
-  calls[[good[which.max(score)]]]
-}
-
-# ------------------------------------------------------------
-# Source current scripts in isolated environments
-# ------------------------------------------------------------
-
-msg("Sourcing 05 lag-selection script...")
-e05 <- new.env(parent = globalenv())
-sys.source(SCRIPT_05, envir = e05)
-
-msg("Sourcing 06 instability script...")
-e06 <- new.env(parent = globalenv())
-sys.source(SCRIPT_06, envir = e06)
-
-need05 <- c("fit_country","panel","foreign","globals","VARS")
-need06 <- c("fit_local_varx","panel","VARS")
-
-m05 <- setdiff(need05, ls(e05))
-m06 <- setdiff(need06, ls(e06))
-if(length(m05)) stopf("05 missing objects: %s", paste(m05, collapse=", "))
-if(length(m06)) stopf("06 missing objects: %s", paste(m06, collapse=", "))
-
-# ------------------------------------------------------------
-# Extract domestic base series and qids from each implementation
-# ------------------------------------------------------------
-
-get_dom05 <- function(cc) {
-  z <- e05$panel[[cc]]
-  if(is.null(z)) stopf("05 panel[[%s]] missing", cc)
-  q <- as.integer(z$qid)
-  X <- as.matrix(z[, e05$VARS, drop=FALSE])
-  colnames(X) <- e05$VARS
-  list(qid=q, X=X)
-}
-
-get_dom06 <- function(cc) {
-  i <- match(cc, e06$COUNTRIES)
-  if(is.na(i)) stopf("06 country %s missing", cc)
-  q <- as.integer(e06$panel$qid)
-  X <- e06$panel$X[, i, , drop=FALSE][,1,]
+lag_matrix_local <- function(X,L) {
   X <- as.matrix(X)
-  colnames(X) <- e06$VARS
-  list(qid=q, X=X)
-}
-
-# ------------------------------------------------------------
-# Reconstruct exact quarter labels for captured designs.
-# 06 exposes rows directly. For 05, infer rows from captured y.
-# ------------------------------------------------------------
-
-align05_qid <- function(main05, cc) {
-  dom <- get_dom05(cc)
-  inf <- infer_rows_from_Y(main05$y, dom$X, dom$qid, e05$VARS)
-  if(length(inf$qid) == nrow(main05$x)) return(inf)
-
-  # Fallback: fit_country uses common quarterly sample and p/q lags.
-  # If no NA trimming remains, the last n observations are the estimation sample.
-  n <- nrow(main05$x)
-  if(n <= length(dom$qid)) {
-    idx <- (length(dom$qid)-n+1L):length(dom$qid)
-    return(list(rows=idx, qid=dom$qid[idx],
-                matched_by="fallback_last_n", maxdiff=NA_real_,
-                ambiguous=TRUE))
-  }
-
-  list(rows=integer(), qid=integer(), matched_by="unresolved",
-       maxdiff=NA_real_, ambiguous=TRUE)
-}
-
-# ------------------------------------------------------------
-# Column matching
-# ------------------------------------------------------------
-
-canonical_name <- function(x) {
-  z <- norm_col(x)
-
-  # normalize common naming differences
-  z <- gsub("intercept|const|constant", "const", z)
-  z <- gsub("gpr_l0|gpr_0|gpr_current", "gpr_0", z)
-  z <- gsub("oil_l0|oil_0|oil_current|brent_0|brent_l0", "oil_0", z)
-  z <- gsub("brent", "oil", z)
-
-  # foreign naming
-  z <- gsub("star_?([a-z0-9]+)_l([0-9]+)", "\\1_star_l\\2", z)
-  z <- gsub("([a-z0-9]+)_foreign_l([0-9]+)", "\\1_star_l\\2", z)
-  z <- gsub("([a-z0-9]+)_ast_l([0-9]+)", "\\1_star_l\\2", z)
-
+  z <- matrix(NA_real_,nrow(X),ncol(X))
+  if(L<nrow(X))
+    z[(L+1L):nrow(X),] <- X[1L:(nrow(X)-L),,drop=FALSE]
+  colnames(z) <- colnames(X)
   z
 }
 
-compare_designs <- function(X05, q05, X06, q06, cc, p) {
-  X05 <- as_num_matrix(X05)
-  X06 <- as_num_matrix(X06)
+lag_vec_local <- function(x,L) {
+  out <- rep(NA_real_,length(x))
+  if(L<length(x))
+    out[(L+1L):length(x)] <- x[1L:(length(x)-L)]
+  out
+}
 
-  c05 <- colnames(X05)
-  c06 <- colnames(X06)
-  if(is.null(c05)) c05 <- paste0("V",seq_len(ncol(X05)))
-  if(is.null(c06)) c06 <- paste0("V",seq_len(ncol(X06)))
-
-  can05 <- canonical_name(c05)
-  can06 <- canonical_name(c06)
-
-  common_q <- intersect(q05, q06)
-  out <- list()
-  kk <- 1L
-
-  # Compare matched columns by canonical names.
-  common_c <- intersect(can05, can06)
-
-  for(cn in common_c) {
-    j05 <- which(can05 == cn)[1L]
-    j06 <- which(can06 == cn)[1L]
-
-    m05 <- match(common_q, q05)
-    m06 <- match(common_q, q06)
-
-    a <- X05[m05, j05]
-    b <- X06[m06, j06]
-    d <- a - b
-
-    finite <- is.finite(a) & is.finite(b)
-
-    first_bad <- NA_integer_
-    if(any(finite & abs(d) > 1e-10))
-      first_bad <- which(finite & abs(d) > 1e-10)[1L]
-
-    out[[kk]] <- data.frame(
-      country=cc,
-      p=p,
-      canonical_column=cn,
-      column_05=c05[j05],
-      column_06=c06[j06],
-      n_common_quarters=length(common_q),
-      n_finite_pairs=sum(finite),
-      max_abs_difference=if(any(finite)) max(abs(d[finite]),na.rm=TRUE) else NA_real_,
-      mean_abs_difference=if(any(finite)) mean(abs(d[finite]),na.rm=TRUE) else NA_real_,
-      n_different_1e10=sum(finite & abs(d)>1e-10),
-      first_different_qid=if(is.na(first_bad)) NA_integer_ else common_q[first_bad],
-      first_different_quarter=if(is.na(first_bad)) NA_character_ else qid_label(common_q[first_bad]),
-      stringsAsFactors=FALSE
-    )
-    kk <- kk + 1L
-  }
-
-  cmp <- if(length(out)) do.call(rbind,out) else data.frame()
-
-  inventory <- rbind(
-    data.frame(country=cc,p=p,source="05_lag_selection",
-               position=seq_along(c05),column=c05,
-               canonical=can05,stringsAsFactors=FALSE),
-    data.frame(country=cc,p=p,source="06_instability",
-               position=seq_along(c06),column=c06,
-               canonical=can06,stringsAsFactors=FALSE)
-  )
-
-  missing <- rbind(
-    data.frame(country=cc,p=p,
-               present_in="05_only",
-               canonical=setdiff(can05,can06),
-               stringsAsFactors=FALSE),
-    data.frame(country=cc,p=p,
-               present_in="06_only",
-               canonical=setdiff(can06,can05),
-               stringsAsFactors=FALSE)
-  )
-
-  list(compare=cmp, inventory=inventory, missing=missing, common_q=common_q)
+canon <- function(x) {
+  z <- tolower(gsub("[^a-z0-9]+","_",x))
+  z <- gsub("^_+|_+$","",z)
+  z <- gsub("^xstar_","",z)
+  z
 }
 
 # ------------------------------------------------------------
-# Run cases
+# Source current scripts in isolated environments.
+# Their main sections will execute and recreate their outputs;
+# this diagnostic does not alter their model specifications.
 # ------------------------------------------------------------
 
-summary_rows <- list()
-call_rows <- list()
-colcmp_rows <- list()
-inventory_rows <- list()
-missing_rows <- list()
-rowdetail_rows <- list()
+msg("Sourcing 05...")
+e05 <- new.env(parent=globalenv())
+sys.source(SCRIPT_05,envir=e05)
+
+msg("Sourcing 06...")
+e06 <- new.env(parent=globalenv())
+sys.source(SCRIPT_06,envir=e06)
+
+need05 <- c("panel","foreign","globals","VARS","P_CANDIDATES")
+need06 <- c("panel","VARS","Q_FIXED")
+miss05 <- setdiff(need05,ls(e05))
+miss06 <- setdiff(need06,ls(e06))
+
+if(length(miss05)) stopf("05 missing objects: %s",paste(miss05,collapse=", "))
+if(length(miss06)) stopf("06 missing objects: %s",paste(miss06,collapse=", "))
+
+# ------------------------------------------------------------
+# EXACT reproduction of design used by 05 fit_country()
+# ------------------------------------------------------------
+
+build_05 <- function(cc,p) {
+  Xi  <- as.matrix(e05$panel[[cc]][,e05$VARS,drop=FALSE])
+  Xs  <- as.matrix(e05$foreign[[cc]][,e05$VARS,drop=FALSE])
+  qid <- as.integer(e05$panel[[cc]]$qid)
+  n   <- nrow(Xi)
+
+  # IMPORTANT: this is exactly what current 05 uses:
+  # idx starts after max(P_CANDIDATES), not after current p.
+  idx <- seq.int(max(e05$P_CANDIDATES)+1L,n)
+
+  Y <- Xi[idx,,drop=FALSE]
+  colnames(Y) <- e05$VARS
+
+  Z <- matrix(1,length(idx),1)
+  colnames(Z) <- "const"
+
+  # domestic lags
+  for(L in seq_len(p)) {
+    XL <- lag_matrix_local(Xi,L)[idx,,drop=FALSE]
+    colnames(XL) <- paste0(e05$VARS,"_L",L)
+    Z <- cbind(Z,XL)
+  }
+
+  # IMPORTANT:
+  # current 05 includes contemporaneous foreign-star AND L1.
+  Xs0 <- Xs[idx,,drop=FALSE]
+  colnames(Xs0) <- paste0(e05$VARS,"_star_0")
+
+  Xs1 <- lag_matrix_local(Xs,1L)[idx,,drop=FALSE]
+  colnames(Xs1) <- paste0(e05$VARS,"_star_L1")
+
+  Z <- cbind(Z,Xs0,Xs1)
+
+  # globals current + L1
+  G <- as.matrix(
+    e05$globals[
+      match(qid,e05$globals$qid),
+      c("gpr","oil"),
+      drop=FALSE
+    ]
+  )
+
+  G0 <- G[idx,,drop=FALSE]
+  colnames(G0) <- c("gpr_0","oil_0")
+
+  G1 <- lag_matrix_local(G,1L)[idx,,drop=FALSE]
+  colnames(G1) <- c("gpr_L1","oil_L1")
+
+  Z <- cbind(Z,G0,G1)
+
+  keep <- complete.cases(Y) & complete.cases(Z)
+
+  list(
+    X=Z[keep,,drop=FALSE],
+    Y=Y[keep,,drop=FALSE],
+    qid=qid[idx][keep],
+    raw_idx=idx,
+    keep=keep
+  )
+}
+
+# ------------------------------------------------------------
+# EXACT reproduction of design used by 06 fit_local_varx()
+# ------------------------------------------------------------
+
+build_06 <- function(cc,p) {
+  i <- match(cc,e06$COUNTRIES)
+  if(is.na(i)) stopf("06 country missing: %s",cc)
+
+  Y <- e06$panel$X[,i,,drop=FALSE][,1,]
+  Xs <- e06$panel$Xstar[,i,,drop=FALSE][,1,]
+
+  Y <- as.matrix(Y)
+  Xs <- as.matrix(Xs)
+
+  colnames(Y) <- e06$VARS
+  colnames(Xs) <- e06$VARS
+
+  Tn <- nrow(Y)
+  maxlag <- max(p,e06$Q_FIXED,1L)
+  rows <- (maxlag+1L):Tn
+
+  D <- data.frame(const=rep(1,length(rows)))
+
+  # domestic lags
+  for(L in seq_len(p)) {
+    for(v in seq_along(e06$VARS)) {
+      D[[paste0(e06$VARS[v],"_L",L)]] <-
+        lag_vec_local(Y[,v],L)[rows]
+    }
+  }
+
+  # IMPORTANT:
+  # current 06 includes ONLY foreign-star L1.
+  for(v in seq_along(e06$VARS)) {
+    D[[paste0(e06$VARS[v],"_star_L1")]] <-
+      lag_vec_local(Xs[,v],1L)[rows]
+  }
+
+  # globals current + L1
+  D$gpr_0  <- e06$panel$gpr[rows]
+  D$gpr_L1 <- lag_vec_local(e06$panel$gpr,1L)[rows]
+  D$oil_0  <- e06$panel$oil[rows]
+  D$oil_L1 <- lag_vec_local(e06$panel$oil,1L)[rows]
+
+  YY <- Y[rows,,drop=FALSE]
+
+  ok <- complete.cases(D) & complete.cases(YY)
+
+  list(
+    X=as.matrix(D[ok,,drop=FALSE]),
+    Y=YY[ok,,drop=FALSE],
+    qid=as.integer(e06$panel$qid[rows][ok]),
+    raw_idx=rows,
+    keep=ok
+  )
+}
+
+# ------------------------------------------------------------
+# Comparison helpers
+# ------------------------------------------------------------
+
+column_inventory <- function(a,b,cc,p) {
+  A <- data.frame(
+    country=cc,p=p,source="05_lag_selection",
+    position=seq_len(ncol(a$X)),
+    column=colnames(a$X),
+    stringsAsFactors=FALSE
+  )
+  B <- data.frame(
+    country=cc,p=p,source="06_instability",
+    position=seq_len(ncol(b$X)),
+    column=colnames(b$X),
+    stringsAsFactors=FALSE
+  )
+  rbind(A,B)
+}
+
+compare_rows <- function(a,b,cc,p) {
+  uq <- sort(unique(c(a$qid,b$qid)))
+  data.frame(
+    country=cc,p=p,
+    qid=uq,
+    quarter=qid_label(uq),
+    in_05=uq %in% a$qid,
+    in_06=uq %in% b$qid,
+    stringsAsFactors=FALSE
+  )
+}
+
+compare_common_columns <- function(a,b,cc,p) {
+  ca <- canon(colnames(a$X))
+  cb <- canon(colnames(b$X))
+
+  common <- intersect(ca,cb)
+  cq <- intersect(a$qid,b$qid)
+
+  out <- list()
+  k <- 1L
+
+  for(nm in common) {
+    ia <- which(ca==nm)[1L]
+    ib <- which(cb==nm)[1L]
+    ra <- match(cq,a$qid)
+    rb <- match(cq,b$qid)
+
+    va <- a$X[ra,ia]
+    vb <- b$X[rb,ib]
+    d <- va-vb
+    good <- is.finite(va)&is.finite(vb)
+
+    bad <- which(good & abs(d)>1e-10)
+
+    out[[k]] <- data.frame(
+      country=cc,p=p,
+      canonical_column=nm,
+      column_05=colnames(a$X)[ia],
+      column_06=colnames(b$X)[ib],
+      n_common_quarters=length(cq),
+      max_abs_difference=if(any(good)) max(abs(d[good])) else NA_real_,
+      mean_abs_difference=if(any(good)) mean(abs(d[good])) else NA_real_,
+      n_different_1e10=length(bad),
+      first_different_quarter=if(length(bad)) qid_label(cq[bad[1]]) else NA_character_,
+      stringsAsFactors=FALSE
+    )
+    k <- k+1L
+  }
+
+  if(length(out)) do.call(rbind,out) else data.frame()
+}
+
+compare_Y <- function(a,b,cc,p) {
+  cq <- intersect(a$qid,b$qid)
+  if(!length(cq)) return(data.frame())
+
+  ra <- match(cq,a$qid)
+  rb <- match(cq,b$qid)
+
+  out <- list()
+  for(j in seq_along(e05$VARS)) {
+    va <- a$Y[ra,j]
+    vb <- b$Y[rb,j]
+    d <- va-vb
+    good <- is.finite(va)&is.finite(vb)
+
+    out[[j]] <- data.frame(
+      country=cc,p=p,
+      equation=e05$VARS[j],
+      n_common_quarters=length(cq),
+      max_abs_difference=if(any(good)) max(abs(d[good])) else NA_real_,
+      n_different_1e10=sum(good & abs(d)>1e-10),
+      stringsAsFactors=FALSE
+    )
+  }
+  do.call(rbind,out)
+}
+
+# ------------------------------------------------------------
+# Main reconciliation
+# ------------------------------------------------------------
+
+summaries <- list()
+inventories <- list()
+rowcmp <- list()
+colcmp <- list()
+ycmp <- list()
+unmatched <- list()
 
 for(ii in seq_len(nrow(CASES))) {
   cc <- CASES$country[ii]
-  p  <- CASES$p[ii]
+  pp <- CASES$p[ii]
 
-  msg("Capturing actual OLS design: %s p=%d", cc, p)
+  msg("Building direct designs: %s p=%d",cc,pp)
 
-  cap05 <- capture_lmfit_calls(
-    e05$fit_country(cc, p, e05$panel, e05$foreign, e05$globals),
-    sprintf("05_%s_p%d",cc,p)
+  a <- build_05(cc,pp)
+  b <- build_06(cc,pp)
+
+  write.csv(
+    data.frame(qid=a$qid,quarter=qid_label(a$qid),a$X,
+               check.names=FALSE),
+    file.path(OUT_DIR,sprintf("X_05_%s_p%d.csv",cc,pp)),
+    row.names=FALSE
   )
 
-  cap06 <- capture_lmfit_calls(
-    e06$fit_local_varx(e06$panel, cc, p),
-    sprintf("06_%s_p%d",cc,p)
+  write.csv(
+    data.frame(qid=b$qid,quarter=qid_label(b$qid),b$X,
+               check.names=FALSE),
+    file.path(OUT_DIR,sprintf("X_06_%s_p%d.csv",cc,pp)),
+    row.names=FALSE
   )
 
-  main05 <- select_main_design(cap05$calls)
-  main06 <- select_main_design(cap06$calls)
+  ca <- canon(colnames(a$X))
+  cb <- canon(colnames(b$X))
+  only05 <- setdiff(ca,cb)
+  only06 <- setdiff(cb,ca)
 
-  if(is.null(main05)) stopf("Could not capture main lm.fit design from 05 for %s p=%d",cc,p)
-  if(is.null(main06)) stopf("Could not capture main lm.fit design from 06 for %s p=%d",cc,p)
+  inventories[[length(inventories)+1L]] <- column_inventory(a,b,cc,pp)
+  rowcmp[[length(rowcmp)+1L]] <- compare_rows(a,b,cc,pp)
+  ccx <- compare_common_columns(a,b,cc,pp)
+  if(nrow(ccx)) colcmp[[length(colcmp)+1L]] <- ccx
+  yy <- compare_Y(a,b,cc,pp)
+  if(nrow(yy)) ycmp[[length(ycmp)+1L]] <- yy
 
-  a05 <- align05_qid(main05,cc)
-
-  # 06 gives exact used rows in return object.
-  ans06 <- cap06$result
-  if(!is.null(ans06$rows)) {
-    q06 <- e06$panel$qid[as.integer(ans06$rows)]
-  } else {
-    n06 <- nrow(main06$x)
-    q06 <- tail(e06$panel$qid,n06)
+  if(length(only05)) {
+    unmatched[[length(unmatched)+1L]] <- data.frame(
+      country=cc,p=pp,present_in="05_only",
+      canonical_column=only05,stringsAsFactors=FALSE
+    )
+  }
+  if(length(only06)) {
+    unmatched[[length(unmatched)+1L]] <- data.frame(
+      country=cc,p=pp,present_in="06_only",
+      canonical_column=only06,stringsAsFactors=FALSE
+    )
   }
 
-  q05 <- a05$qid
+  max_x_diff <- if(nrow(ccx) && any(is.finite(ccx$max_abs_difference)))
+    max(ccx$max_abs_difference,na.rm=TRUE) else NA_real_
 
-  # If capture selected one of 5 equation calls, X is still the exact design.
-  cmp <- compare_designs(main05$x,q05,main06$x,q06,cc,p)
-
-  if(nrow(cmp$compare)) colcmp_rows[[length(colcmp_rows)+1L]] <- cmp$compare
-  inventory_rows[[length(inventory_rows)+1L]] <- cmp$inventory
-  if(nrow(cmp$missing)) missing_rows[[length(missing_rows)+1L]] <- cmp$missing
-
-  maxdiff <- if(nrow(cmp$compare))
-    max(cmp$compare$max_abs_difference,na.rm=TRUE) else NA_real_
-  if(!is.finite(maxdiff)) maxdiff <- NA_real_
-
-  first_bad <- NA_character_
-  if(nrow(cmp$compare)) {
-    bad <- which(is.finite(cmp$compare$max_abs_difference) &
-                   cmp$compare$max_abs_difference > 1e-10)
-    if(length(bad)) {
-      z <- cmp$compare[bad[order(cmp$compare$first_different_qid[bad],
-                                na.last=TRUE)][1L],]
-      first_bad <- sprintf("%s @ %s",
-                           z$canonical_column,
-                           z$first_different_quarter)
-    }
-  }
-
-  summary_rows[[length(summary_rows)+1L]] <- data.frame(
-    country=cc,
-    p=p,
-    nrow_X05=nrow(main05$x),
-    ncol_X05=ncol(main05$x),
-    nrow_X06=nrow(main06$x),
-    ncol_X06=ncol(main06$x),
-    first_q05=if(length(q05)) qid_label(min(q05)) else NA_character_,
-    last_q05=if(length(q05)) qid_label(max(q05)) else NA_character_,
-    first_q06=if(length(q06)) qid_label(min(q06)) else NA_character_,
-    last_q06=if(length(q06)) qid_label(max(q06)) else NA_character_,
-    qid_alignment_method_05=a05$matched_by,
-    qid_alignment_ambiguous_05=a05$ambiguous,
-    n_common_columns=length(intersect(canonical_name(colnames(main05$x)),
-                                      canonical_name(colnames(main06$x)))),
-    n_05_only=length(setdiff(canonical_name(colnames(main05$x)),
-                            canonical_name(colnames(main06$x)))),
-    n_06_only=length(setdiff(canonical_name(colnames(main06$x)),
-                            canonical_name(colnames(main05$x)))),
-    max_abs_design_difference=maxdiff,
-    first_detected_difference=first_bad,
+  summaries[[length(summaries)+1L]] <- data.frame(
+    country=cc,p=pp,
+    nobs_05=nrow(a$X),
+    nobs_06=nrow(b$X),
+    regressors_05=ncol(a$X),
+    regressors_06=ncol(b$X),
+    first_q_05=qid_label(min(a$qid)),
+    last_q_05=qid_label(max(a$qid)),
+    first_q_06=qid_label(min(b$qid)),
+    last_q_06=qid_label(max(b$qid)),
+    identical_qid=identical(as.integer(a$qid),as.integer(b$qid)),
+    n_common_columns=length(intersect(ca,cb)),
+    n_05_only=length(only05),
+    n_06_only=length(only06),
+    max_abs_difference_common_X=max_x_diff,
     stringsAsFactors=FALSE
   )
-
-  # Record all lm.fit calls to make sure we captured the intended one.
-  for(src in c("05","06")) {
-    calls <- if(src=="05") cap05$calls else cap06$calls
-    if(length(calls)) for(k in seq_along(calls)) {
-      z <- calls[[k]]
-      call_rows[[length(call_rows)+1L]] <- data.frame(
-        country=cc,p=p,source=src,call_index=k,
-        nrow_x=z$nrow_x,ncol_x=z$ncol_x,
-        nrow_y=z$nrow_y,ncol_y=z$ncol_y,
-        x_columns=paste(z$colnames_x,collapse=" | "),
-        stringsAsFactors=FALSE
-      )
-    }
-  }
-
-  # Full row-by-row matched design differences.
-  common_q <- cmp$common_q
-  common_c <- intersect(canonical_name(colnames(main05$x)),
-                        canonical_name(colnames(main06$x)))
-
-  if(length(common_q) && length(common_c)) {
-    m05q <- match(common_q,q05)
-    m06q <- match(common_q,q06)
-    can05 <- canonical_name(colnames(main05$x))
-    can06 <- canonical_name(colnames(main06$x))
-
-    for(cn in common_c) {
-      j05 <- which(can05==cn)[1L]
-      j06 <- which(can06==cn)[1L]
-      a <- main05$x[m05q,j05]
-      b <- main06$x[m06q,j06]
-
-      rowdetail_rows[[length(rowdetail_rows)+1L]] <- data.frame(
-        country=cc,p=p,qid=common_q,quarter=qid_label(common_q),
-        canonical_column=cn,
-        value_05=a,value_06=b,
-        difference=a-b,
-        abs_difference=abs(a-b),
-        stringsAsFactors=FALSE
-      )
-    }
-  }
-
-  # Save actual matrices separately for exact inspection.
-  write.csv(
-    data.frame(qid=q05,quarter=qid_label(q05),main05$x,
-               check.names=FALSE),
-    file.path(OUT_DIR,sprintf("X_actual_05_%s_p%d.csv",cc,p)),
-    row.names=FALSE
-  )
-
-  write.csv(
-    data.frame(qid=q06,quarter=qid_label(q06),main06$x,
-               check.names=FALSE),
-    file.path(OUT_DIR,sprintf("X_actual_06_%s_p%d.csv",cc,p)),
-    row.names=FALSE
-  )
 }
 
-summary_df <- do.call(rbind,summary_rows)
-calls_df <- if(length(call_rows)) do.call(rbind,call_rows) else data.frame()
-colcmp_df <- if(length(colcmp_rows)) do.call(rbind,colcmp_rows) else data.frame()
-inventory_df <- do.call(rbind,inventory_rows)
-missing_df <- if(length(missing_rows)) do.call(rbind,missing_rows) else data.frame()
-rowdetail_df <- if(length(rowdetail_rows)) do.call(rbind,rowdetail_rows) else data.frame()
-
-if(nrow(colcmp_df)) {
-  colcmp_df <- colcmp_df[
-    order(colcmp_df$country,colcmp_df$p,
-          -ifelse(is.na(colcmp_df$max_abs_difference),-Inf,
-                  colcmp_df$max_abs_difference)),
-    ,drop=FALSE]
-}
-
-if(nrow(rowdetail_df)) {
-  rowdetail_df <- rowdetail_df[
-    order(rowdetail_df$country,rowdetail_df$p,
-          -ifelse(is.na(rowdetail_df$abs_difference),-Inf,
-                  rowdetail_df$abs_difference)),
-    ,drop=FALSE]
-}
+summary_df <- do.call(rbind,summaries)
+inventory_df <- do.call(rbind,inventories)
+rows_df <- do.call(rbind,rowcmp)
+cols_df <- if(length(colcmp)) do.call(rbind,colcmp) else data.frame()
+y_df <- if(length(ycmp)) do.call(rbind,ycmp) else data.frame()
+unmatched_df <- if(length(unmatched)) do.call(rbind,unmatched) else data.frame()
 
 write.csv(summary_df,
           file.path(OUT_DIR,"01_design_matrix_summary.csv"),
           row.names=FALSE)
-
-write.csv(calls_df,
-          file.path(OUT_DIR,"02_lmfit_call_inventory.csv"),
-          row.names=FALSE)
-
 write.csv(inventory_df,
-          file.path(OUT_DIR,"03_design_column_inventory.csv"),
+          file.path(OUT_DIR,"02_design_column_inventory.csv"),
           row.names=FALSE)
-
-write.csv(missing_df,
-          file.path(OUT_DIR,"04_unmatched_columns.csv"),
+write.csv(rows_df,
+          file.path(OUT_DIR,"03_estimation_row_comparison.csv"),
           row.names=FALSE)
-
-write.csv(colcmp_df,
-          file.path(OUT_DIR,"05_columnwise_design_comparison.csv"),
+write.csv(unmatched_df,
+          file.path(OUT_DIR,"04_unmatched_regressors.csv"),
           row.names=FALSE)
-
-write.csv(rowdetail_df,
-          file.path(OUT_DIR,"06_rowwise_design_difference.csv"),
+write.csv(cols_df,
+          file.path(OUT_DIR,"05_common_column_value_comparison.csv"),
           row.names=FALSE)
-
-# Top differences only.
-topdiff <- if(nrow(rowdetail_df)) {
-  subset(rowdetail_df,is.finite(abs_difference) & abs_difference > 1e-10)
-} else data.frame()
-
-if(nrow(topdiff)) {
-  topdiff <- head(topdiff,200L)
-}
-write.csv(topdiff,
-          file.path(OUT_DIR,"07_top_200_design_differences.csv"),
+write.csv(y_df,
+          file.path(OUT_DIR,"06_dependent_variable_comparison.csv"),
           row.names=FALSE)
 
 # ------------------------------------------------------------
-# Automatic interpretation
+# Explicit structural-specification audit
 # ------------------------------------------------------------
 
-txt <- c(
-  "DESIGN-MATRIX RECONCILIATION",
-  "============================",
+spec <- data.frame(
+  item=c(
+    "domestic_lags",
+    "foreign_star_contemporaneous",
+    "foreign_star_lag1",
+    "gpr_current",
+    "gpr_lag1",
+    "oil_current",
+    "oil_lag1",
+    "row_start_rule"
+  ),
+  implementation_05=c(
+    "L1..Lp",
+    "YES",
+    "YES",
+    "YES",
+    "YES",
+    "YES",
+    "YES",
+    "max(P_CANDIDATES)+1"
+  ),
+  implementation_06=c(
+    "L1..Lp",
+    "NO",
+    "YES",
+    "YES",
+    "YES",
+    "YES",
+    "YES",
+    "max(p,Q_FIXED,1)+1"
+  ),
+  same=c(
+    TRUE,
+    FALSE,
+    TRUE,
+    TRUE,
+    TRUE,
+    TRUE,
+    TRUE,
+    FALSE
+  ),
+  stringsAsFactors=FALSE
+)
+
+write.csv(spec,
+          file.path(OUT_DIR,"07_structural_specification_difference.csv"),
+          row.names=FALSE)
+
+# ------------------------------------------------------------
+# README / automatic conclusion
+# ------------------------------------------------------------
+
+readme <- c(
+  "DESIGN-MATRIX RECONCILIATION v2",
+  "================================",
   "",
-  "This diagnostic captures the ACTUAL X matrices passed to stats::lm.fit().",
-  "It does not alter lags, weights, GPR, Brent, identification, or transformations.",
+  "This script directly reproduces the implemented design matrices of",
+  "05_country_specific_lag_selection.R and",
+  "06_cn_za_instability_diagnostic.R.",
+  "",
+  "No model setting is changed by this diagnostic.",
+  "",
+  "KNOWN IMPLEMENTATION DIFFERENCE FOUND BEFORE ESTIMATION:",
+  "",
+  "05 fit_country():",
+  "  Z includes Xs[t] AND Xs[t-1].",
+  "",
+  "06 fit_local_varx():",
+  "  D includes ONLY Xs[t-1].",
+  "",
+  "Therefore the two local systems are NOT the same VARX specification.",
+  "Their domestic-lag coefficients and companion spectral radii are not",
+  "expected to match exactly, even when the domestic raw data are identical.",
+  "",
+  "A second implementation difference exists for row initialization:",
+  "  05 starts at max(P_CANDIDATES)+1 = 3 for BOTH p=1 and p=2.",
+  "  06 starts at max(p,Q_FIXED,1)+1.",
+  "Thus for p=1, 05 starts one quarter later than 06.",
+  "For p=2, this row-start rule is the same.",
+  "",
+  "Interpretation:",
+  "  - CN p=2 and ZA p=2: the main specification difference is",
+  "    contemporaneous foreign-star variables included by 05 but omitted by 06.",
+  "  - JP p=1: both the foreign-star specification and row-start rule differ.",
+  "",
+  "Do NOT use the earlier 05-vs-06 spectral-radius discrepancy as evidence",
+  "of a data error. The estimators were not estimating the same local model.",
+  "",
+  "Next methodological decision should be explicit:",
+  "choose the intended GVAR local specification for foreign variables, then",
+  "make BOTH lag-selection and instability diagnostics use that same design.",
   ""
 )
 
-for(i in seq_len(nrow(summary_df))) {
-  z <- summary_df[i,]
-  txt <- c(
-    txt,
-    sprintf("%s p=%d",z$country,z$p),
-    sprintf("  05 X: %d x %d; sample %s to %s",
-            z$nrow_X05,z$ncol_X05,z$first_q05,z$last_q05),
-    sprintf("  06 X: %d x %d; sample %s to %s",
-            z$nrow_X06,z$ncol_X06,z$first_q06,z$last_q06),
-    sprintf("  common columns: %d; 05-only: %d; 06-only: %d",
-            z$n_common_columns,z$n_05_only,z$n_06_only),
-    sprintf("  max absolute design difference: %s",
-            format(z$max_abs_design_difference,digits=12)),
-    sprintf("  first detected difference: %s",
-            ifelse(is.na(z$first_detected_difference),
-                   "NONE",z$first_detected_difference))
-  )
-
-  zz <- subset(colcmp_df,
-               country==z$country & p==z$p &
-                 is.finite(max_abs_difference) &
-                 max_abs_difference > 1e-10)
-
-  if(nrow(zz)) {
-    zz <- zz[order(-zz$max_abs_difference),,drop=FALSE]
-    take <- head(zz,8L)
-    txt <- c(txt,"  largest differing columns:")
-    for(j in seq_len(nrow(take))) {
-      txt <- c(txt,
-        sprintf("    %s: max diff=%g; first=%s",
-                take$canonical_column[j],
-                take$max_abs_difference[j],
-                take$first_different_quarter[j]))
-    }
-  } else {
-    txt <- c(txt,"  No matched design column differs above 1e-10.")
-  }
-  txt <- c(txt,"")
-}
-
-txt <- c(
-  txt,
-  "Interpretation order:",
-  "1. If sample endpoints differ -> row trimming / complete-case alignment problem.",
-  "2. If 04_unmatched_columns.csv is non-empty -> regressor specification/naming differs.",
-  "3. If domestic lag columns match but star columns differ -> foreign-variable construction differs.",
-  "4. If star columns match but GPR/Oil differs -> global-series alignment differs.",
-  "5. If all X columns match -> inspect dependent-variable alignment / coefficient extraction.",
-  "",
-  "Do not choose the final country-specific lag vector until this reconciliation is resolved."
-)
-
-writeLines(txt,file.path(OUT_DIR,"README_design_matrix_reconciliation.txt"))
+writeLines(readme,
+           file.path(OUT_DIR,"README_design_matrix_reconciliation.txt"))
 
 msg("")
-msg("=== DESIGN MATRIX SUMMARY ===")
+msg("=== SUMMARY ===")
 print(summary_df,row.names=FALSE)
 msg("")
-msg("Outputs: %s",OUT_DIR)
+msg("=== STRUCTURAL DIFFERENCES ===")
+print(spec,row.names=FALSE)
+msg("")
+msg("DONE. Outputs: %s",OUT_DIR)
