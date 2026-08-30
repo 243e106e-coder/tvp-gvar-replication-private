@@ -7,10 +7,6 @@ on:
       - "8.12/05_country_specific_lag_selection.R"
       - "8.12/06_cn_za_instability_diagnostic.R"
       - "8.12/08_design_matrix_reconciliation.R"
-      - "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
-      - "8.12/Trade_Weights_14_Economies_2000_2014.csv"
-      - "8.12/gpr_quarterly_processed.csv"
-      - "8.12/IMF_Brent_quarterly_log_2000Q1_2026Q2.csv"
       - ".github/workflows/design_matrix_reconciliation.yml"
 
 jobs:
@@ -42,57 +38,38 @@ jobs:
             "8.12/05_country_specific_lag_selection.R"
             "8.12/06_cn_za_instability_diagnostic.R"
             "8.12/08_design_matrix_reconciliation.R"
-            "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
-            "8.12/Trade_Weights_14_Economies_2000_2014.csv"
-            "8.12/gpr_quarterly_processed.csv"
-            "8.12/IMF_Brent_quarterly_log_2000Q1_2026Q2.csv"
           )
           for f in "${files[@]}"; do
             test -f "$f" || { echo "::error::Missing $f"; exit 1; }
             echo "FOUND: $f"
           done
 
-      - name: Run design-matrix reconciliation
+      - name: Run direct design reconciliation
         shell: bash
         run: |
           set -euo pipefail
           rm -rf "8.12/design_matrix_reconciliation"
           Rscript --vanilla "8.12/08_design_matrix_reconciliation.R"
 
-      - name: Validate outputs
+      - name: Show key results
+        if: success()
         shell: bash
         run: |
           set -euo pipefail
           out="8.12/design_matrix_reconciliation"
-
-          required=(
-            "$out/01_design_matrix_summary.csv"
-            "$out/02_lmfit_call_inventory.csv"
-            "$out/03_design_column_inventory.csv"
-            "$out/05_columnwise_design_comparison.csv"
-            "$out/06_rowwise_design_difference.csv"
-            "$out/07_top_200_design_differences.csv"
-            "$out/README_design_matrix_reconciliation.txt"
-          )
-
-          for f in "${required[@]}"; do
-            test -f "$f" || { echo "::error::Missing $f"; exit 1; }
-            echo "OK: $f"
-          done
-
-          echo
-          echo "=== DESIGN MATRIX SUMMARY ==="
+          echo "=== SUMMARY ==="
           cat "$out/01_design_matrix_summary.csv"
-
           echo
-          echo "=== COLUMNWISE COMPARISON ==="
-          head -40 "$out/05_columnwise_design_comparison.csv" || true
-
+          echo "=== UNMATCHED REGRESSORS ==="
+          cat "$out/04_unmatched_regressors.csv" || true
           echo
-          echo "=== INTERPRETATION ==="
+          echo "=== STRUCTURAL SPECIFICATION DIFFERENCE ==="
+          cat "$out/07_structural_specification_difference.csv"
+          echo
+          echo "=== README ==="
           cat "$out/README_design_matrix_reconciliation.txt"
 
-      - name: Upload design reconciliation artifact
+      - name: Upload reconciliation artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
