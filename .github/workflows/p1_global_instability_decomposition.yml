@@ -7,16 +7,31 @@ jobs:
   diagnose:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.4.2'
+
       - name: Install R packages
-        run: Rscript -e 'install.packages(c("readr", "dplyr", "tidyr", "zoo", "lubridate"), repos="https://cloud.r-project.org")'
+        run: |
+          Rscript -e 'install.packages(c(
+            "readxl",
+            "readr",
+            "dplyr",
+            "tidyr",
+            "zoo",
+            "lubridate"
+          ), repos="https://cloud.r-project.org")'
+
       - name: Run p=1 decomposition
         run: Rscript 8.12/10_p1_global_instability_decomposition.R
+
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: p1-global-instability-decomposition
           path: 8.12/p1_global_instability_decomposition/
+          if-no-files-found: warn
