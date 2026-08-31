@@ -1,0 +1,25 @@
+name: G0 Near-Singularity Decomposition
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.4.2'
+      - name: Install R packages
+        run: |
+          Rscript -e 'install.packages(c("readxl", "readr", "dplyr", "tidyr", "zoo", "lubridate"), repos="https://cloud.r-project.org")'
+      - name: Run G0 SVD and block decomposition
+        run: Rscript 8.12/11_g0_near_singularity_decomposition.R
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: g0-near-singularity-decomposition
+          path: 8.12/g0_near_singularity_decomposition/
+          if-no-files-found: warn
