@@ -88,15 +88,27 @@ stopifnot(ncol(xglobal)==71L, tail(colnames(xglobal),1)=="GL_shock")
 
 # Exactly 14x5 macro variables + one independent global variable;
 # original country trade weights retained. No other risk is included.
-w <- read.csv(Sys.getenv("TVPGVAR_WEIGHT_FILE","data/trade_weights.csv"), check.names=FALSE)
-if (!"Country" %in% names(w)) stop("Weights require Country column")
-rownames(w) <- as.character(w$Country)
-stopifnot(all(countries %in% rownames(w)),all(countries %in% names(w)))
-Wt <- as.matrix(w[countries,countries]); storage.mode(Wt)<-"double"
-if(any(!is.finite(Wt)) || any(Wt<0)) stop("Invalid trade weights")
-diag(Wt)<-0
-if(any(rowSums(Wt)<=0)) stop("Zero trade weight row")
-Wt<-Wt/rowSums(Wt)
+w <- read.csv(Sys.getenv("TVPGVAR_WEIGHT_FILE", "data/trade_weights.csv"),
+              check.names = FALSE, fileEncoding = "UTF-8-BOM",
+              stringsAsFactors = FALSE)
+names(w) <- sub("^\ufeff", "", names(w))
+# The repository's official 14-economy trade-weight CSV uses 'Reporter',
+# not 'Country', as the reporter-economy key.
+if (!"Reporter" %in% names(w)) {
+  stop("Trade-weight file must have a 'Reporter' column; found: ",
+       paste(names(w), collapse = ", "))
+}
+if (anyNA(w$Reporter) || anyDuplicated(w$Reporter)) {
+  stop("Missing or duplicate Reporter economies in trade weights")
+}
+rownames(w) <- as.character(w$Reporter)
+stopifnot(all(countries %in% rownames(w)), all(countries %in% names(w)))
+Wt <- as.matrix(w[countries, countries, drop = FALSE]); storage.mode(Wt) <- "double"
+if (any(!is.finite(Wt)) || any(Wt < 0)) stop("Invalid trade weights")
+if (any(abs(diag(Wt)) > 1e-10)) stop("Trade-weight diagonal must be zero")
+if (any(rowSums(Wt) <= 0)) stop("Zero trade-weight row")
+Wt <- Wt / rowSums(Wt)
+cat("Trade weights loaded and validated (Reporter x partner): 14 x 14\n")
 units<-c(countries,"GL"); K<-ncol(xglobal); gl_idx<-match("GL_shock",colnames(xglobal))
 gW<-setNames(vector("list",length(units)),units)
 for(cc in countries) {
