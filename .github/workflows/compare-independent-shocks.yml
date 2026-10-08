@@ -42,7 +42,7 @@ jobs:
       TVPGVAR_MACRO_XLSX: "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
       TVPGVAR_WEIGHT_FILE: "8.12/Trade_Weights_14_Economies_2000_2014.csv"
       TVPGVAR_GPR_CSV: "8.12/gpr_quarterly_processed.csv"
-      TVPGVAR_VIX_RAW_CSV: "8.12/VIXCLS (1).csv"
+      TVPGVAR_VIX_RAW_CSV: "8.12/VIXCLS_daily_fred.csv"
       TVPGVAR_VIX_PROCESSED_CSV: "data/vix_quarterly_processed.csv"
 
     steps:
