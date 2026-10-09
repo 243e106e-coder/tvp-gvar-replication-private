@@ -166,6 +166,57 @@ for(i in seq_along(cN)) {
   X<-X[(p+1L):nrow(X),,drop=FALSE]
   if(any(!is.finite(X))) stop("Bad preflight ",cc)
 }
+# Scalar global (GL) block requires separate handling. The original BVAR
+# assumes M >= 2 and drops dimensions for a one-variable endogenous block.
+BVAR_scalar_GL <- function(i, gW, bigx, Daten, cN,
+                           nsave, nburn, thin_chain, ext.inst, parms) {
+  stopifnot(cN[[i]] == "GL")
+  suppressPackageStartupMessages(library(threshtvp))
+  Yraw <- matrix(as.numeric(bigx[, "GL_shock"]), ncol = 1L,
+                 dimnames = list(NULL, "GL_shock"))
+  lag_y <- mlag(Yraw, p)
+  X <- cbind(constant = 1, lag_y)
+  X <- X[(p+1L):nrow(X), , drop = FALSE]
+  colnames(X) <- c("constant", paste0("Ylag", seq_len(p)))
+  Y <- Yraw[(p+1L):nrow(Yraw), 1L]
+  stopifnot(nrow(X) == length(Y), all(is.finite(X)), all(is.finite(Y)))
+  # Same TVP, stochastic-volatility and shrinkage settings as country blocks.
+  est <- threshtvp::estimate_tvp(
+    Y, X, save = nsave, burn = nburn, p = p,
+    sv_on = TRUE, thin = thin_chain, priorbtheta = parms,
+    priormu = c(0, 10), h0prior = "stationary",
+    grid.length = 150, thrsh.pct = 0.1, thrsh.pct.high = 1.5,
+    TVS = TRUE, CPU = 1
+  )
+  Avec <- est$posterior$A
+  Hd <- est$posterior$H
+  if(length(dim(Avec)) != 3L) {
+    stop("Scalar GL: unexpected posterior A shape: ",
+         paste(dim(Avec), collapse = "x"))
+  }
+  Aa <- aperm(Avec, c(2, 3, 1))
+  T <- nrow(X); K <- ncol(X)
+  if(dim(Aa)[1L] != T || dim(Aa)[2L] != K) {
+    stop("Scalar GL posterior A mismatch: ",
+         paste(dim(Aa), collapse = "x"), " expected ", T, "x", K, "xDraws")
+  }
+  nd <- min(dim(Aa)[3L], as.integer(round(thin_chain * nsave)))
+  if(nd < 1L) stop("Scalar GL has no retained draws")
+  if(!is.matrix(Hd) || ncol(Hd) != T || nrow(Hd) < nd) {
+    stop("Scalar GL unexpected posterior H shape: ",
+         paste(dim(Hd), collapse = "x"))
+  }
+  alpha <- array(Aa[, , seq_len(nd), drop = FALSE],
+                 dim = c(T, K, 1L, nd),
+                 dimnames = list(NULL, colnames(X), "GL_shock", NULL))
+  sig <- array(NA_real_, c(T, 1L, 1L, nd))
+  for(j in seq_len(nd)) sig[, 1L, 1L, j] <- exp(Hd[j, ])
+  mean_coef <- apply(alpha, c(1L, 2L), mean)
+  if(!is.matrix(mean_coef)) mean_coef <- matrix(mean_coef, nrow = T)
+  resid <- matrix(Y - rowSums(X * mean_coef), ncol = 1L)
+  list(ALPHA = alpha, SIGMApost = sig,
+       W = gW[[i]], cc.res = resid)
+}
 # Model's patched BVAR reads lag setting from TVPGVAR_P; held constant across runs.
 BVAR<-cmpfun(BVAR)
 CPU<-min(4L,max(1L,as.integer(Sys.getenv("TVPGVAR_CPU","2"))))
@@ -174,12 +225,19 @@ if(length(cN)>1) for(i in 2:length(cN)) rng[[i]]<-parallel::nextRNGStream(rng[[i
 sfInit(parallel=TRUE,cpus=CPU)
 sfExport(list=list("mlag","BVAR","datahandling","xglobal","gW","Daten","cN",
                    "bvartvpm","saves","burns","thin","ext.inst","shrink.parm","rng",
-                   "tvpgvar_extract_wex","tvpgvar_wex_lag","tvpgvar_safe_inverse"))
+                   "tvpgvar_extract_wex","tvpgvar_wex_lag","tvpgvar_safe_inverse",
+                   "BVAR_scalar_GL","p"))
 predDens<-tryCatch(sfLapply(seq_along(cN),function(i) {
   assign(".Random.seed",rng[[i]],envir=.GlobalEnv)
-  BVAR(i,gW=gW,bigx=xglobal,Daten=Daten,cN=cN,
-       nsave=saves,nburn=burns,thin_chain=thin,
-       ext.inst=ext.inst,parms=shrink.parm)
+  tryCatch({
+    estimator <- if(cN[[i]] == "GL") BVAR_scalar_GL else BVAR
+    estimator(i,gW=gW,bigx=xglobal,Daten=Daten,cN=cN,
+              nsave=saves,nburn=burns,thin_chain=thin,
+              ext.inst=ext.inst,parms=shrink.parm)
+  }, error=function(e) {
+    stop(paste0("UNIT=",cN[[i]],"; ERROR=",conditionMessage(e)),
+         call.=FALSE)
+  })
 }),finally=sfStop())
 save(predDens,Data.setup,file=file.path(out,"posterior.rda"))
 A<-lapply(predDens,`[[`,"ALPHA");S<-lapply(predDens,`[[`,"SIGMApost")
@@ -195,8 +253,13 @@ for(d in chosen) {
  rho<-rep(NA_real_,nd)
  for(dd in seq_len(nd)) {
    fit<-get_dominant_gpr_irf_t(tt,
-      draw_i=lapply(A,function(z)z[,,,dd,drop=FALSE][,,,1]),
-      Sig_draw_i=lapply(S,function(z)z[,,,dd,drop=FALSE][,,,1]),
+      draw_i=lapply(A,function(z) {
+        array(z[,,,dd,drop=FALSE], dim=dim(z)[1:3],
+              dimnames=dimnames(z)[1:3])
+      }),
+      Sig_draw_i=lapply(S,function(z) {
+        array(z[,,,dd,drop=FALSE], dim=dim(z)[1:3])
+      }),
       x=t(xglobal),globalG=globalG,units=cN,
       horizon=nhor,shock_pct=shock_pct)
    IR[,,dd]<-fit$IRF_post;rho[dd]<-fit$max_eigen_modulus
