@@ -1,0 +1,50 @@
+name: Audit Equity Returns vs Cumulative Price IRFs
+'on':
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Original successful independent-shocks estimation run
+        required: true
+        default: '37872702188'
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    if: github.repository == '243e106e-coder/tvp-gvar-replication-private'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        risk: [GPR, VIX, EPU, OIL]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Download original posterior results
+        uses: actions/download-artifact@v4
+        with:
+          name: independent-${{ matrix.risk }}-${{ inputs.source_run_id }}
+          run-id: ${{ inputs.source_run_id }}
+          repository: 243e106e-coder/tvp-gvar-replication-private
+          github-token: ${{ github.token }}
+          path: posterior-inputs
+      - name: Set up R
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.4.2'
+      - name: Reconstruct IRFs and accumulate within each draw
+        run: |
+          Rscript --vanilla 8.12/audit_equity_cumulative_irf.R \
+            "${{ matrix.risk }}" posterior-inputs \
+            "results/equity_cumulative/${{ matrix.risk }}"
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: equity-cumulative-${{ matrix.risk }}-${{ github.run_id }}
+          path: results/equity_cumulative/${{ matrix.risk }}/
+          if-no-files-found: warn
+          retention-days: 30
