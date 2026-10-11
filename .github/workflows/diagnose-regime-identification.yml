@@ -1,0 +1,61 @@
+name: Diagnose Regime and Identification Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run:
+        description: "Successful independent-shocks run"
+        required: true
+        default: "37872702188"
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare directories
+        run: mkdir -p results/independent_shocks
+      - name: Download original result artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for risk in GPR VIX EPU OIL; do
+            low="$(echo "$risk" | tr '[:upper:]' '[:lower:]')"
+            dest="results/independent_shocks/$low"
+            mkdir -p "$dest"
+            gh run download "${{ inputs.source_run }}" \
+              --repo "${{ github.repository }}" \
+              --name "independent-${risk}-${{ inputs.source_run }}" \
+              --dir "$dest"
+            for f in irf_stable_only.csv stability.csv; do
+              found="$(find "$dest" -name "$f" -type f | head -n 1)"
+              if [[ -z "$found" ]]; then echo "Missing $risk/$f" >&2; exit 1; fi
+              if [[ "$found" != "$dest/$f" ]]; then cp "$found" "$dest/$f"; fi
+              test -s "$dest/$f"
+            done
+          done
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.4.2'
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::ggplot2
+      - name: Generate comparisons and identification audit
+        run: Rscript --vanilla 8.12/diagnose_regime_identification.R
+      - name: Upload diagnostic reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regime-identification-diagnostics
+          path: results/regime_identification_diagnostics/
+          if-no-files-found: warn
+          retention-days: 30
