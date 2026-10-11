@@ -1,0 +1,71 @@
+name: Diagnose Independent GPR VIX EPU Oil IRFs
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Successful independent-shock estimation run ID
+        required: true
+        default: '37872702188'
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  diagnose:
+    if: github.repository == '243e106e-coder/tvp-gvar-replication-private'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+    steps:
+      - name: Checkout diagnostic script
+        uses: actions/checkout@v4
+      - name: Download original GPR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: independent-GPR-${{ inputs.source_run_id }}
+          run-id: ${{ inputs.source_run_id }}
+          repository: 243e106e-coder/tvp-gvar-replication-private
+          github-token: ${{ github.token }}
+          path: diagnostic-inputs/gpr
+      - name: Download original VIX artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: independent-VIX-${{ inputs.source_run_id }}
+          run-id: ${{ inputs.source_run_id }}
+          repository: 243e106e-coder/tvp-gvar-replication-private
+          github-token: ${{ github.token }}
+          path: diagnostic-inputs/vix
+      - name: Download original EPU artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: independent-EPU-${{ inputs.source_run_id }}
+          run-id: ${{ inputs.source_run_id }}
+          repository: 243e106e-coder/tvp-gvar-replication-private
+          github-token: ${{ github.token }}
+          path: diagnostic-inputs/epu
+      - name: Download original Oil artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: independent-OIL-${{ inputs.source_run_id }}
+          run-id: ${{ inputs.source_run_id }}
+          repository: 243e106e-coder/tvp-gvar-replication-private
+          github-token: ${{ github.token }}
+          path: diagnostic-inputs/oil
+      - name: Set up R (no estimation dependencies)
+        uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.4.2'
+          use-public-rspm: true
+      - name: Analyze saved CSVs only
+        shell: bash
+        run: |
+          Rscript --vanilla 8.12/diagnose_independent_irfs.R diagnostic-inputs results/four_shock_irf_diagnostics
+      - name: Upload diagnostics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: four-shock-irf-diagnostics-${{ github.run_id }}
+          path: results/four_shock_irf_diagnostics/
+          if-no-files-found: warn
+          retention-days: 30
