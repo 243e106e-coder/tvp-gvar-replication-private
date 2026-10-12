@@ -1,0 +1,32 @@
+name: Historical IRF Stage Two Diagnostics
+'on':
+  workflow_dispatch:
+    inputs:
+      historical_run_id:
+        description: Four independent shock run
+        default: '37872702188'
+        required: true
+permissions:
+  contents: read
+  actions: read
+jobs:
+  stage2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch historical artifact CSVs
+        run: python3 8.12/fetch_historical_artifacts.py --run-id "${{ inputs.historical_run_id }}" --output results/audit_artifacts
+      - name: Compute country/date IRF diagnostics
+        run: python3 8.12/diagnose_historical_irfs_stage2.py --input results/audit_artifacts --out results/irf_stage2
+      - name: Upload diagnostic outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: irf-stage-two-${{ github.run_id }}
+          path: |
+            results/irf_stage2/
+            results/audit_artifacts/source_manifest.json
+          if-no-files-found: warn
