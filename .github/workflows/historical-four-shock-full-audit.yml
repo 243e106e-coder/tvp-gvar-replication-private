@@ -1,0 +1,59 @@
+name: Historical Four-Shock Full Audit
+'on':
+  workflow_dispatch:
+    inputs:
+      historical_run_id:
+        description: Successful historical independent GPR/VIX/EPU/OIL run ID
+        required: true
+        default: '37872702188'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Obtain historical independent-shock artifacts
+        run: |
+          python3 8.12/fetch_historical_artifacts.py \
+            --run-id "${{ inputs.historical_run_id }}" \
+            --output results/audit_artifacts
+      - name: Check trade weights, stability and confidence intervals
+        run: |
+          python3 8.12/audit_historical_weights_irfs.py \
+            --artifacts results/audit_artifacts \
+            --out results/historical_audit
+      - name: Verify all four shocks and six historical dates were processed
+        run: |
+          python3 - <<'PY'
+          import csv, pathlib, sys
+          root=pathlib.Path('results/historical_audit')
+          def rows(name):
+              with (root/name).open(newline='',encoding='utf-8') as f:
+                  return list(csv.DictReader(f))
+          missing=rows('missing_or_duplicate_artifacts.csv')
+          stability=rows('stability_review.csv')
+          irfs=rows('irf_direction_significance.csv')
+          shocks={'GPR','VIX','EPU','OIL'}
+          if missing or set(r['shock'] for r in stability)!=shocks or set(r['shock'] for r in irfs)!=shocks:
+              sys.exit('ERROR: incomplete four-shock results; inspect missing artifact CSV')
+          if not stability or not irfs:
+              sys.exit('ERROR: empty stability or IRF data')
+          if any(not r['stable_share'] for r in stability):
+              sys.exit('ERROR: missing stable-share diagnostic')
+          print('PASS: all four historical shocks have nonempty stability and IRF data')
+          PY
+      - name: Upload full audit and source manifest
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: historical-four-shock-full-audit-${{ github.run_id }}
+          path: |
+            results/historical_audit/
+            results/audit_artifacts/source_manifest.json
+          if-no-files-found: warn
+          retention-days: 30
