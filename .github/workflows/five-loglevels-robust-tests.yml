@@ -18,10 +18,13 @@ jobs:
           packages: |
             any::readxl
             any::urca
+            any::strucchange
       - name: Build isolated log-level input
         run: Rscript --vanilla 8.12/build_five_loglevels_input.R
       - name: Run corrected rank labels, ADF sensitivity, KPSS and KR/TR CPI diagnostics
         run: Rscript --vanilla 8.12/validate_five_loglevels_robust.R
+      - name: Diagnose KR and TR CPI structural breaks
+        run: Rscript --vanilla 8.12/diagnose_kr_tr_cpi_breaks.R
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@v4

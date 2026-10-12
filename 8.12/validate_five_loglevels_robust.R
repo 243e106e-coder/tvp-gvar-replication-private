@@ -26,7 +26,23 @@ adf_one <- function(z,spec,cap) tryCatch({
 },error=function(e)data.frame(stat=NA_real_,cv5=NA_real_,reject5=NA,error=conditionMessage(e)))
 kpss_one <- function(z,spec) tryCatch({
   fit <- urca::ur.kpss(z,type=spec,lags="short")
-  stat <- as.numeric(fit@teststat); cv <- as.numeric(fit@cval["5pct"])
+  stat <- as.numeric(fit@teststat)[1]
+  # urca::ur.kpss stores critical values under names such as "5pct";
+  # match carefully instead of silently exporting NA for all tests.
+  critical <- fit@cval
+  if(is.matrix(critical)) {
+    indices <- which(grepl("^5\\s*(pct|%)?$",trimws(colnames(critical)),ignore.case=TRUE))
+    if(length(indices)==1L) critical <- critical[,indices] else {
+      indices <- which(grepl("^5\\s*(pct|%)?$",trimws(rownames(critical)),ignore.case=TRUE))
+      if(length(indices)!=1L) stop("KPSS critical value label not found")
+      critical <- critical[indices,]
+    }
+  }
+  critical_names <- names(critical)
+  idx <- which(grepl("^5\\s*(pct|%)?$",trimws(critical_names),ignore.case=TRUE))
+  if(length(idx)!=1L) stop("Cannot find unambiguous 5% KPSS critical value; available: ",paste(critical_names,collapse=","))
+  cv <- as.numeric(critical[idx])
+  if(length(stat)!=1L || length(cv)!=1L || !is.finite(stat) || !is.finite(cv)) stop("Invalid KPSS statistic/critical value")
   data.frame(stat=stat,cv5=cv,reject_stationarity5=stat>cv,error="")
 },error=function(e)data.frame(stat=NA_real_,cv5=NA_real_,reject_stationarity5=NA,error=conditionMessage(e)))
 adf <- list()
@@ -47,6 +63,7 @@ for(name in cols[-1]) for(transform in c("level","difference")){
 }
 kpss <- do.call(rbind,kpss)
 write.csv(kpss,file.path(outdir,"kpss_robustness.csv"),row.names=FALSE)
+if(anyNA(kpss$cv5) || anyNA(kpss$reject_stationarity5)) stop("KPSS critical values not resolved: check implementation, do not publish incomplete output.")
 joh <- list()
 for(country in cc){
   Z <- as.matrix(d[paste0(country,"_",vv)])
