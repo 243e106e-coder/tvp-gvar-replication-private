@@ -1,0 +1,17 @@
+#!/usr/bin/env Rscript
+f <- 'data/loglevels/model_semantic.csv';if(!file.exists(f)) stop('Build data first')
+x <- read.csv(f,check.names=FALSE);out <- 'results/loglevels_preflight';dir.create(out,recursive=TRUE,showWarnings=FALSE)
+if(anyNA(x)||any(!is.finite(as.matrix(x[,-1])))) stop('Nonfinite inputs')
+sumstat <- do.call(rbind,lapply(names(x)[-1],function(n){z<-x[[n]];data.frame(variable=n,n=length(z),mean=mean(z),sd=sd(z),lag1=cor(head(z,-1),tail(z,-1)))}))
+write.csv(sumstat,file.path(out,'descriptives.csv'),row.names=FALSE)
+if(requireNamespace('urca',quietly=TRUE)) {
+  test <- function(z) tryCatch({a<-urca::ur.df(z,type='trend',lags=4,selectlags='AIC');c(stat=a@teststat[1,'tau3'],cv=a@cval['tau3','5pct'])},error=function(e)c(stat=NA_real_,cv=NA_real_))
+  adf <- do.call(rbind,lapply(names(x)[-1],function(n){a<-test(x[[n]]);b<-test(diff(x[[n]]));data.frame(variable=n,level_stat=a[1],level_5pct=a[2],diff_stat=b[1],diff_5pct=b[2],stringsAsFactors=FALSE)}))
+  write.csv(adf,file.path(out,'adf_screen.csv'),row.names=FALSE)
+  countries<-c('AU','BR','CA','CH','CN','EA','UK','JP','KR','NO','SG','TR','US','ZA')
+  vars<-c('y','p','r','q','eq')
+  joh<-do.call(rbind,lapply(countries,function(cc)tryCatch({z<-as.matrix(x[paste0(cc,'_',vars)]);fit<-urca::ca.jo(z,type='trace',ecdet='const',K=2);data.frame(country=cc,rank_hypothesis=seq_along(fit@teststat)-1,stat=as.numeric(fit@teststat),cv_5pct=as.numeric(fit@cval[,'5pct']))},error=function(e)data.frame(country=cc,rank_hypothesis=NA,stat=NA,cv_5pct=NA))))
+  write.csv(joh,file.path(out,'johansen_exploratory.csv'),row.names=FALSE)
+} else writeLines('Install urca; no ADF or Johansen run.',file.path(out,'TESTS_NOT_RUN.txt'))
+writeLines(c('These tests are exploratory, not evidence of an identified cointegrated TVP-GVAR.', 'Johansen requires suitable integration orders; the short rate may be I(0).', 'Model validation must not depend on desired GDP/equity IRF sign.','Existing trade weights may contain historical mirrored entries: audit before formal inference.'),file.path(out,'LIMITATIONS.txt'))
+cat('PASS preflight\n')
