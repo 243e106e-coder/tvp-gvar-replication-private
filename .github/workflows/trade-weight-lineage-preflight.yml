@@ -1,0 +1,20 @@
+name: Trade Weight Lineage Preflight
+'on':
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install workbook reader
+        run: python3 -m pip install openpyxl==3.1.5
+      - name: Inspect committed trade weight source files
+        run: python3 8.12/audit_trade_weight_lineage.py
+      - name: Save provenance inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: trade-weight-lineage-${{ github.run_id }}
+          path: results/trade_weight_lineage/
+          if-no-files-found: error
