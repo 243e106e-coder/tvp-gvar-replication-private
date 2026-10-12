@@ -1,5 +1,7 @@
 # 14-Economy TVP-GVAR: Structural Global GPR Version
 
+> **Historical workflow only.** This document describes the GDP-growth structural-GPR specification and its cumulative GDP IRFs. It does **not** describe independent four-shock run 37872702188, where GDP was transformed into an indexed log level and must not be cumulated. Consult [historical audit](AUDIT_HISTORICAL_MODELS_20261012.md). Trade-weight upstream provenance for the later 2000–2014 matrix remains unresolved.
+
 ## What changed
 
 This package fixes the identification and data-handling issues in the previous endogenous-GPR/GIRF smoke test.
