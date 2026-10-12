@@ -5,6 +5,33 @@ if(length(arg)<3)stop("Usage: script posterior.rda SHOCK outdir")
 path<-arg[1];risk<-arg[2];out<-arg[3]
 dir.create(out,recursive=TRUE,showWarnings=FALSE)
 source("8.12/dominant_gpr_vix_irf.R")
+# Independent-shock run 37872702188 uses a one-variable GL block.
+# Reuse its scalar impact normalization rather than the older 2x2 GL_gpr/GL_vix
+# recursive Cholesky routine in dominant_gpr_vix_irf.R.
+dominant_gpr_struct_irf <- function(G,F,sig,x,units,horizon=12,
+                                    shock_var="GL_shock",shock_pct=10) {
+  j <- match("GL_shock",rownames(x))
+  if(is.na(j)) stop("Missing GL_shock in global state")
+  ui <- match("GL",units)
+  v <- as.numeric(sig[[ui]])
+  if(length(v)!=1L || !is.finite(v) || v<=0) stop("Invalid scalar shock variance")
+  u <- rep(0,nrow(x))
+  u[j] <- sqrt(v)
+  raw <- as.numeric(solve(G,u))
+  if(!is.finite(raw[j]) || abs(raw[j])<1e-12) stop("Cannot normalize impact")
+  impact <- raw*(log1p(shock_pct/100)/raw[j])
+  ir <- matrix(NA_real_,nrow(x),horizon+1,
+               dimnames=list(rownames(x),as.character(0:horizon)))
+  ir[,1] <- impact
+  for(h in seq_len(horizon)) {
+    next_ir <- rep(0,length(impact))
+    for(k in seq_len(min(length(F),h)))
+      next_ir <- next_ir + as.vector(F[[k]] %*% ir[,h-k+1])
+    ir[,h+1] <- next_ir
+  }
+  ir
+}
+
 load(path)
 stopifnot(exists("predDens"),exists("Data.setup"))
 a<-lapply(predDens,function(z)z$ALPHA)
