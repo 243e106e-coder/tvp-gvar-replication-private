@@ -29,19 +29,25 @@ kpss_one <- function(z,spec) tryCatch({
   stat <- as.numeric(fit@teststat)[1]
   # urca::ur.kpss stores critical values under names such as "5pct";
   # match carefully instead of silently exporting NA for all tests.
+  `%||%` <- function(x,y) if(is.null(x)) y else x
   critical <- fit@cval
   if(is.matrix(critical)) {
-    indices <- which(grepl("^5\\s*(pct|%)?$",trimws(colnames(critical)),ignore.case=TRUE))
-    if(length(indices)==1L) critical <- critical[,indices] else {
-      indices <- which(grepl("^5\\s*(pct|%)?$",trimws(rownames(critical)),ignore.case=TRUE))
-      if(length(indices)!=1L) stop("KPSS critical value label not found")
-      critical <- critical[indices,]
-    }
+    cn <- trimws(colnames(critical) %||% character())
+    rn <- trimws(rownames(critical) %||% character())
+    idx_col <- which(grepl("^5\\s*(pct|%)?$", cn, ignore.case=TRUE))
+    idx_row <- which(grepl("^5\\s*(pct|%)?$", rn, ignore.case=TRUE))
+    if(length(idx_col)==1L && nrow(critical)==1L) cv <- as.numeric(critical[1L,idx_col])
+    else if(length(idx_row)==1L && ncol(critical)==1L) cv <- as.numeric(critical[idx_row,1L])
+    else stop("Unexpected KPSS matrix dimensions or 5pct labels")
+  } else {
+    cn <- trimws(names(critical) %||% character())
+    idx <- which(grepl("^5\\s*(pct|%)?$",cn,ignore.case=TRUE))
+    if(length(idx)==1L) cv <- as.numeric(critical[idx])
+    else if(length(critical)==4L) {
+      # urca::ur.kpss standard critical values are ordered 10%,5%,2.5%,1%.
+      cv <- as.numeric(critical[2L])
+    } else stop("Unknown KPSS critical-value vector layout")
   }
-  critical_names <- names(critical)
-  idx <- which(grepl("^5\\s*(pct|%)?$",trimws(critical_names),ignore.case=TRUE))
-  if(length(idx)!=1L) stop("Cannot find unambiguous 5% KPSS critical value; available: ",paste(critical_names,collapse=","))
-  cv <- as.numeric(critical[idx])
   if(length(stat)!=1L || length(cv)!=1L || !is.finite(stat) || !is.finite(cv)) stop("Invalid KPSS statistic/critical value")
   data.frame(stat=stat,cv5=cv,reject_stationarity5=stat>cv,error="")
 },error=function(e)data.frame(stat=NA_real_,cv5=NA_real_,reject_stationarity5=NA,error=conditionMessage(e)))
