@@ -1,4 +1,6 @@
 GPR + VIX / P2-STRONG DIAGNOSTIC
+NOTE: This is a TWO-risk joint specification, not the four INDEPENDENT scalar-GLOBAL-risk jobs from run 37872702188.
+NOTE: The 2000-2014 trade-weight lineage is unresolved; upstream mirror completion is documented.
 ================================
 
 Purpose

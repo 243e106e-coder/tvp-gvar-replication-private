@@ -290,5 +290,5 @@ writeLines(c(paste("Shock:",risk),paste("Data:",note),
              "One independent scalar dominant shock; no other risk index in system.",
              "GDP is log level; DO NOT cumulate its IRF.",
              "Only posterior draws with global spectral radius < 1 retained.",
-             "No missing-data imputation."),file.path(out,"provenance.txt"))
+             "No missing-data imputation during final aligned model-input construction; historical trade-W lineage is NOT verified and upstream 2013-2014 mirror-completion is documented."),file.path(out,"provenance.txt"))
 cat("COMPLETED:",risk,"output:",out,"\n")
