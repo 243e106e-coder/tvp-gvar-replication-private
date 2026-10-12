@@ -12,6 +12,8 @@ import os
 from pathlib import Path
 import sys
 import urllib.request
+import urllib.parse
+import urllib.error
 import zipfile
 
 SHOCKS = ('GPR', 'VIX', 'EPU', 'OIL')
@@ -25,8 +27,34 @@ def get(url, token, *, binary=False):
         'X-GitHub-Api-Version': '2022-11-28',
         'User-Agent': 'tvp-gvar-historical-audit',
     })
-    with urllib.request.urlopen(req, timeout=90) as response:
-        data = response.read()
+    # Artifact ZIP endpoint returns an HTTP 302 to a time-limited signed
+    # storage URL. Never forward the GitHub bearer token to another host:
+    # doing so may produce HTTP 401 and leaks an authorization header.
+    class SignedArtifactRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, oldreq, fp, code, msg, headers, newurl):
+            nextreq = super().redirect_request(oldreq, fp, code, msg, headers, newurl)
+            if nextreq is None:
+                return None
+            oldhost = urllib.parse.urlsplit(oldreq.full_url).hostname
+            newhost = urllib.parse.urlsplit(newurl).hostname
+            if oldhost != newhost:
+                for key in list(nextreq.headers):
+                    if key.lower() in ('authorization', 'x-github-api-version'):
+                        del nextreq.headers[key]
+                for key in list(nextreq.unredirected_hdrs):
+                    if key.lower() in ('authorization', 'x-github-api-version'):
+                        del nextreq.unredirected_hdrs[key]
+            return nextreq
+
+    opener = urllib.request.build_opener(SignedArtifactRedirect())
+    try:
+        with opener.open(req, timeout=120) as response:
+            data = response.read()
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(
+            f'GitHub artifact download returned HTTP {exc.code}; '
+            'verify actions:read permissions and signed URL validity'
+        ) from exc
     return data if binary else json.loads(data.decode('utf-8'))
 
 
