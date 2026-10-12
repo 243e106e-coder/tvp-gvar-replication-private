@@ -1,0 +1,20 @@
+name: Inspect Trade Workbook Cells
+'on':
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Excel parser
+        run: python3 -m pip install openpyxl==3.1.5
+      - name: Inspect all source workbook cells
+        run: python3 8.12/audit_trade_workbook_cells.py
+      - name: Upload complete cell-level evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: trade-workbook-cell-audit-${{ github.run_id }}
+          path: results/trade_workbook_cells/
+          if-no-files-found: error
