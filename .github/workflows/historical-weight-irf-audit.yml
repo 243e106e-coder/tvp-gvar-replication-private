@@ -1,0 +1,19 @@
+name: Historical Trade Weight and IRF Audit
+'on':
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Audit committed trade weight matrix and available historical artifact files
+        run: python3 8.12/audit_historical_weights_irfs.py
+      - name: Upload audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: historical-model-audit-${{ github.run_id }}
+          path: results/historical_audit/
+          if-no-files-found: warn
