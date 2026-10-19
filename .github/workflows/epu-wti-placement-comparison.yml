@@ -1,4 +1,4 @@
-name: EPU WTI - Global versus US Block
+name: EPU WTI Mainland - Peak Dates - Global versus US
 
 on:
   workflow_dispatch:
@@ -20,6 +20,8 @@ on:
       - "8.12/prepare_epu_wti.R"
       - "8.12/epu_wti_irf.R"
       - "8.12/test_epu_wti_architecture.R"
+      - "8.12/select_epu_peaks.py"
+      - "8.12/epu_wti_quarterly.csv"
       - ".github/workflows/epu-wti-placement-comparison.yml"
 
 permissions:
@@ -55,6 +57,8 @@ jobs:
         run: |
           Rscript --vanilla 8.12/02b_build_14e_input_gdp_loglevel.R
           python3 8.12/difference_interest_rates.py
+          python3 8.12/select_epu_peaks.py --p "$TVPGVAR_P"
+          python3 8.12/test_epu_peak_selection.py
           Rscript --vanilla 8.12/patch_BVAR_dominant_unit.R
       - name: Parse and test shock normalization and architecture
         run: |
@@ -170,7 +174,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: EPU-WTI-PLACEMENT-COMPARISON-${{ github.run_id }}
+          name: MAINLAND-EPU-WTI-PEAK-COMPARISON-${{ github.run_id }}
           path: results/epu_wti/
           if-no-files-found: warn
           retention-days: 90

@@ -11,13 +11,13 @@
       "last_month": "2026-09"
     },
     {
-      "file": "cn.xlsx",
-      "url": "https://www.policyuncertainty.com/media/SCMP_China_Policy_Uncertainty_Data.xlsx",
-      "description": "China SCMP EPU; Factiva only, no ProQuest splice",
-      "sheet": "China EPU Index_Factiva",
-      "sha256": "38db95374377846a4cf8827357ed830018a241d39d4e9ff37040d2dc82638cad",
-      "first_month": "1995-01",
-      "last_month": "2026-01"
+      "file": "china_mainland.xlsx",
+      "url": "https://www.policyuncertainty.com/media/China_Mainland_Paper_EPU.xlsx",
+      "description": "China mainland overall EPU; Davis, Liu and Sheng (2019); NOT TPU",
+      "sheet": "EPU 2000 onwards",
+      "sha256": "48796e91014bec671fcc4ae1751dc7b2a5b0491b68c0d2cec0018e2f0685882f",
+      "first_month": "2000-01",
+      "last_month": "2026-08"
     },
     {
       "file": "wti.xls",
@@ -31,9 +31,9 @@
   ],
   "aggregation": "Equal-weight arithmetic mean of exactly 3 monthly values; then natural log. EIA monthly averages, not daily-weighted quarterly averages.",
   "missing": "No zero replacement, interpolation, source splice or extrapolation.",
-  "china": "SCMP Factiva version; China index is not US EPU even when placed in the US block.",
+  "china": "Davis-Liu-Sheng mainland newspapers overall EPU; EPU 2000 onwards sheet, EPU column; NOT TPU. China index is not US EPU even when placed in the US block.",
   "wti": "Nominal spot price, not futures or Brent; not an identified oil-supply shock.",
-  "first_quarter": "1995Q1",
-  "last_quarter": "2025Q4",
-  "observations": 124
+  "first_quarter": "2000Q1",
+  "last_quarter": "2026Q2",
+  "observations": 106
 }

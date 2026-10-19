@@ -10,6 +10,27 @@ if(!length(files)) stop("No model IRFs; inspect job logs and posterior artifacts
 all<-do.call(rbind,lapply(files,read.csv))
 all$variable<-sub("^(GL|US)_(epu|wti)$","COMMON_\\2",all$variable)
 write.csv(all,file.path(root,"all_irf_summaries.csv"),row.names=FALSE)
+pf<-list.files(root,pattern="^selected_peak_dates.csv$",recursive=TRUE,full.names=TRUE)
+if(length(pf)) {
+  peaks<-unique(do.call(rbind,lapply(pf,read.csv)))
+  write.csv(peaks,file.path(root,"selected_epu_peak_dates.csv"),row.names=FALSE)
+  q<-read.csv("8.12/epu_wti_quarterly.csv")
+  pdf(file.path(root,"EPU_series_with_selected_peaks.pdf"),width=11,height=5)
+  for(ec in c("US","CN")) {
+    z<-data.frame(Quarter=q$Quarter,EPU=q[[paste0(ec,"_EPU")]])
+    z<-subset(z,Quarter>="2000Q3"&Quarter<="2025Q3")
+    z$time<-as.integer(substr(z$Quarter,1,4))+(as.integer(substr(z$Quarter,6,6))-1)/4
+    pp<-subset(peaks,epu_country==ec)
+    pp$time<-as.integer(substr(pp$Quarter,1,4))+(as.integer(substr(pp$Quarter,6,6))-1)/4
+    print(ggplot(z,aes(time,EPU))+geom_line()+
+       geom_point(data=pp,color="red",size=2)+
+       geom_text(data=pp,aes(label=Quarter),vjust=-.6,size=3)+
+       theme_bw()+labs(title=paste(ec,"EPU: selected period peaks"),
+          subtitle=if(ec=="CN") "Davis-Liu-Sheng mainland overall EPU; quarterly mean" else "US news-based EPU; quarterly mean",
+          x="Year",y="EPU index"))
+  }
+  dev.off()
+}
 sf<-list.files(root,pattern="^stability.csv$",recursive=TRUE,full.names=TRUE)
 if(length(sf)) write.csv(do.call(rbind,lapply(sf,read.csv)),file.path(root,"all_stability.csv"),row.names=FALSE)
 global<-subset(all,placement=="GLOBAL")
@@ -49,6 +70,8 @@ for(ec in c("US","CN")) {
   dev.off()
 }
 writeLines(c("Compare placements only within a given EPU series and common sample.",
+ "IRF dates are country-specific EPU period maxima; GLOBAL and US placements share dates within each EPU country.",
+ "China EPU is Davis-Liu-Sheng MAINLAND overall EPU (not SCMP, not TPU).",
  "Both EPU and WTI shocks are normalized to +10% own-variable impact.",
  "Placement differences are descriptive differences between posterior medians, not a posterior credible interval for their difference.",
  "Stable-only posterior conditioning differs by specification; inspect all_stability.csv and valid_all summaries.",

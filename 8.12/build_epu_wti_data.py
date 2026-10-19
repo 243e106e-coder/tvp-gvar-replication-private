@@ -11,8 +11,8 @@ RAW = ROOT / "epu_wti_sources"
 SOURCES = {
  "us.xlsx": ("https://www.policyuncertainty.com/media/US_Policy_Uncertainty_Data.xlsx",
              "US news-based EPU", "Main News Index"),
- "cn.xlsx": ("https://www.policyuncertainty.com/media/SCMP_China_Policy_Uncertainty_Data.xlsx",
-             "China SCMP EPU; Factiva only, no ProQuest splice", "China EPU Index_Factiva"),
+ "china_mainland.xlsx": ("https://www.policyuncertainty.com/media/China_Mainland_Paper_EPU.xlsx",
+             "China mainland overall EPU; Davis, Liu and Sheng (2019); NOT TPU", "EPU 2000 onwards"),
  "wti.xls": ("https://www.eia.gov/dnav/pet/hist_xls/RWTCm.xls",
              "EIA RWTC monthly Cushing OK WTI spot FOB USD/barrel", "Data 1")
 }
@@ -65,7 +65,7 @@ def build():
     payload=dict(downloaded_utc="2026-10-19",sources=manifest,
                  aggregation="Equal-weight arithmetic mean of exactly 3 monthly values; then natural log. EIA monthly averages, not daily-weighted quarterly averages.",
                  missing="No zero replacement, interpolation, source splice or extrapolation.",
-                 china="SCMP Factiva version; China index is not US EPU even when placed in the US block.",
+                 china="Davis-Liu-Sheng mainland newspapers overall EPU; EPU 2000 onwards sheet, EPU column; NOT TPU. China index is not US EPU even when placed in the US block.",
                  wti="Nominal spot price, not futures or Brent; not an identified oil-supply shock.",
                  first_quarter=q.index[0],last_quarter=q.index[-1],observations=len(q))
     (ROOT/"epu_wti_source_manifest.json").write_text(json.dumps(payload,indent=2)+"\n")

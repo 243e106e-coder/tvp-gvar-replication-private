@@ -38,7 +38,8 @@ settings<-list(epu_country=epu_country,placement=placement,p=p,q=1L,
                interpretation="Recursive EPU and oil-price innovations, not isolated causal policy/supply shocks")
 dput(settings,file=file.path(out,"settings.R"))
 file.copy("8.12/epu_wti_source_manifest.json",out,overwrite=TRUE)
-writeLines(c(paste("EPU economic country:",epu_country),
+writeLines(c("China EPU: Davis, Liu and Sheng mainland overall EPU, EPU 2000 onwards sheet, EPU column; not TPU.",
+             paste("EPU economic country:",epu_country),
              paste("Equation host:",Data.setup$host),
              "Country of EPU never changes when it is hosted in US equations.",
              "GLOBAL: no macro feedback into risk equations. US: five foreign macro controls enter US risk equations.",
@@ -48,6 +49,15 @@ writeLines(c(paste("EPU economic country:",epu_country),
              "Unchanged inherited trade weights include the repository's documented historical mirror completion.",
              "Use stable shares and unfiltered IRFs alongside stable-only summaries."),
            file.path(out,"provenance.txt"))
+peak_dir<-"data/rate_diff"
+peaks<-read.csv(file.path(peak_dir,"epu_peak_dates.csv"),stringsAsFactors=FALSE)
+chosen<-as.character(peaks$Quarter[peaks$epu_country==epu_country])
+available<-Data.setup$quarters[-seq_len(p)]
+stopifnot(length(chosen)>0,!anyDuplicated(chosen),all(chosen %in% available))
+for(f in c("epu_peak_dates.csv","epu_peak_candidates.csv","epu_peak_rules.json"))
+  stopifnot(file.copy(file.path(peak_dir,f),out,overwrite=TRUE))
+write.csv(subset(peaks,epu_country==settings$epu_country),
+          file.path(out,"selected_peak_dates.csv"),row.names=FALSE)
 if(Sys.getenv("PREFLIGHT_ONLY","false")=="true") {
   cat("PASS preflight",run_id,nrow(xglobal),"quarters",ncol(xglobal),"variables\n")
   quit(save="no",status=0)
@@ -87,7 +97,7 @@ nd<-dim(A[[1]])[4];K<-ncol(xglobal)
 stopifnot(all(vapply(A,function(z)dim(z)[4],integer(1))==nd),
           all(vapply(A,function(z)dim(z)[1],integer(1))==nrow(xglobal)-p))
 dates<-Data.setup$quarters[-seq_len(p)]
-chosen<-intersect(c("2003Q1","2008Q3","2014Q3","2020Q1","2022Q1","2023Q4"),dates)
+stopifnot(all(chosen %in% dates))
 shock_host<-Data.setup$host;active_risk_names<-Data.setup$risk_names
 rows<-list();stability<-list();failures<-list();raw_by_date<-list()
 add_summary<-function(IR,mask,date,shock,filter,response_kind="raw") {
