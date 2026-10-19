@@ -1,0 +1,176 @@
+name: EPU WTI - Global versus US Block
+
+on:
+  workflow_dispatch:
+    inputs:
+      saves:
+        description: MCMC saves (exploratory default 500)
+        default: "500"
+      burns:
+        description: MCMC burn-in
+        default: "500"
+      p:
+        description: Domestic lag
+        type: choice
+        options: ["1", "2"]
+        default: "1"
+  push:
+    paths:
+      - "8.12/run_epu_wti_comparison.R"
+      - "8.12/prepare_epu_wti.R"
+      - "8.12/epu_wti_irf.R"
+      - "8.12/test_epu_wti_architecture.R"
+      - ".github/workflows/epu-wti-placement-comparison.yml"
+
+permissions:
+  contents: read
+
+env:
+  TVPGVAR_P: ${{ inputs.p || '1' }}
+  TVPGVAR_SAVES: ${{ inputs.saves || '500' }}
+  TVPGVAR_BURNS: ${{ inputs.burns || '500' }}
+  TVPGVAR_THIN: "0.5"
+  TVPGVAR_HORIZON: "12"
+  TVPGVAR_SHOCK_PCT: "10"
+  TVPGVAR_CPU: "2"
+  TVPGVAR_GDP_DLOG_SCALE: "100"
+  TVPGVAR_GDP_BASE_INDEX: "100"
+  TVPGVAR_MACRO_XLSX: "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+  TVPGVAR_WEIGHT_FILE: "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+  TVPGVAR_GPR_CSV: "8.12/gpr_quarterly_processed.csv"
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::readxl
+      - name: Build common macro input and rate differences
+        run: |
+          Rscript --vanilla 8.12/02b_build_14e_input_gdp_loglevel.R
+          python3 8.12/difference_interest_rates.py
+          Rscript --vanilla 8.12/patch_BVAR_dominant_unit.R
+      - name: Parse and test shock normalization and architecture
+        run: |
+          Rscript -e 'for(f in c("8.12/run_epu_wti_comparison.R","8.12/summarize_epu_wti_comparison.R")) parse(f)'
+          Rscript --vanilla 8.12/test_epu_wti_architecture.R
+      - name: Validate all four actual-data designs before MCMC
+        env:
+          PREFLIGHT_ONLY: "true"
+        run: |
+          for ec in US CN; do
+            for pl in GLOBAL US; do
+              EPU_COUNTRY="$ec" PLACEMENT="$pl" Rscript --vanilla 8.12/run_epu_wti_comparison.R
+            done
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: epu-wti-preflight-${{ github.run_id }}
+          path: |
+            data/rate_diff/
+            results/epu_wti/
+            results/build_structural_input_summary.txt
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        with:
+          name: epu-wti-common-input
+          path: data/rate_diff/
+          if-no-files-found: error
+          retention-days: 30
+
+  estimate:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        epu: [US, CN]
+        placement: [GLOBAL, US]
+    env:
+      EPU_COUNTRY: ${{ matrix.epu }}
+      PLACEMENT: ${{ matrix.placement }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: epu-wti-common-input
+          path: data/rate_diff/
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::remotes
+            any::readxl
+            any::snowfall
+            any::zoo
+            any::Matrix
+            any::mvtnorm
+            any::coda
+            any::bayesm
+            any::psych
+            any::MCMCpack
+            any::mnormt
+            any::rARPACK
+            any::ggplot2
+            any::GIGrvg
+            any::dlm
+            any::Rcpp
+            any::RcppArmadillo
+      - name: Install original solver dependencies
+        shell: bash
+        run: |
+          Rscript -e 'remotes::install_version("stochvol",version="3.2.9",repos="https://cloud.r-project.org",upgrade="never")'
+          sed -i 's|inv_f=solve(f.t(),Vtt.t(), "std").t();|inv_f=solve(arma::mat(f.t()),arma::mat(Vtt.t()), "std").t();|' threshtvp_source/src/threshold_functions.cpp
+          R CMD INSTALL threshtvp_source
+
+      - name: Prepare estimator
+        run: Rscript --vanilla 8.12/patch_BVAR_dominant_unit.R
+      - name: Estimate joint EPU WTI system and both structural shocks
+        run: Rscript --vanilla 8.12/run_epu_wti_comparison.R
+      - name: Preserve posterior and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: epu-wti-${{ matrix.epu }}-${{ matrix.placement }}-${{ github.run_id }}
+          path: results/epu_wti/
+          if-no-files-found: warn
+          retention-days: 90
+
+  compare:
+    needs: [preflight, estimate]
+    if: ${{ always() && needs.preflight.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: epu-wti-*-*-${{ github.run_id }}
+          path: results/epu_wti/
+          merge-multiple: true
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::ggplot2
+      - name: Compare IRFs and plot 90 percent intervals
+        run: Rscript --vanilla 8.12/summarize_epu_wti_comparison.R
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: EPU-WTI-PLACEMENT-COMPARISON-${{ github.run_id }}
+          path: results/epu_wti/
+          if-no-files-found: warn
+          retention-days: 90

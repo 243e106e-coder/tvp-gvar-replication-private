@@ -1,0 +1,39 @@
+{
+  "downloaded_utc": "2026-10-19",
+  "sources": [
+    {
+      "file": "us.xlsx",
+      "url": "https://www.policyuncertainty.com/media/US_Policy_Uncertainty_Data.xlsx",
+      "description": "US news-based EPU",
+      "sheet": "Main News Index",
+      "sha256": "f45d20713ef06f902588152137fcc4dd2ebbc8765cb199366f1a65788ba332bc",
+      "first_month": "1900-01",
+      "last_month": "2026-09"
+    },
+    {
+      "file": "cn.xlsx",
+      "url": "https://www.policyuncertainty.com/media/SCMP_China_Policy_Uncertainty_Data.xlsx",
+      "description": "China SCMP EPU; Factiva only, no ProQuest splice",
+      "sheet": "China EPU Index_Factiva",
+      "sha256": "38db95374377846a4cf8827357ed830018a241d39d4e9ff37040d2dc82638cad",
+      "first_month": "1995-01",
+      "last_month": "2026-01"
+    },
+    {
+      "file": "wti.xls",
+      "url": "https://www.eia.gov/dnav/pet/hist_xls/RWTCm.xls",
+      "description": "EIA RWTC monthly Cushing OK WTI spot FOB USD/barrel",
+      "sheet": "Data 1",
+      "sha256": "4f8912f50c392f4f888905807ccfcc703d4e487c0373a1909fa27af40c465ccc",
+      "first_month": "1986-01",
+      "last_month": "2026-09"
+    }
+  ],
+  "aggregation": "Equal-weight arithmetic mean of exactly 3 monthly values; then natural log. EIA monthly averages, not daily-weighted quarterly averages.",
+  "missing": "No zero replacement, interpolation, source splice or extrapolation.",
+  "china": "SCMP Factiva version; China index is not US EPU even when placed in the US block.",
+  "wti": "Nominal spot price, not futures or Brent; not an identified oil-supply shock.",
+  "first_quarter": "1995Q1",
+  "last_quarter": "2025Q4",
+  "observations": 124
+}
