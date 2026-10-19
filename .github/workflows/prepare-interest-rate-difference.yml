@@ -1,0 +1,42 @@
+name: Prepare First-Differenced Interest Rates
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "8.12/difference_interest_rates.py"
+      - ".github/workflows/prepare-interest-rate-difference.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      TVPGVAR_GDP_DLOG_SCALE: "100"
+      TVPGVAR_GDP_BASE_INDEX: "100"
+      TVPGVAR_MACRO_XLSX: "8.12/TVP_GVAR_14经济体_5变量_2000Q1_2026Q2_处理完成.xlsx"
+      TVPGVAR_WEIGHT_FILE: "8.12/Trade_Weights_14_Economies_2000_2014.csv"
+      TVPGVAR_GPR_CSV: "8.12/gpr_quarterly_processed.csv"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: "4.4.2"
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::readxl
+      - name: Build existing GDP-log-level and rate-level input
+        run: Rscript --vanilla 8.12/02b_build_14e_input_gdp_loglevel.R
+      - name: Difference and verify the 14 interest rates
+        run: python3 8.12/difference_interest_rates.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: interest-rate-first-difference-${{ github.run_id }}
+          path: |
+            data/rate_diff/
+            results/build_structural_input_summary.txt
+          if-no-files-found: error
+          retention-days: 90
