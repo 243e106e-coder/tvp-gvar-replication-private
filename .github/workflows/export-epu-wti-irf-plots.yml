@@ -1,0 +1,40 @@
+name: Export EPU WTI IRF Plots Only
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/export-epu-wti-irf-plots.yml"
+permissions:
+  actions: read
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: MAINLAND-EPU-WTI-PEAK-COMPARISON-39294123604
+          run-id: 39294123604
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: source
+      - name: Extract existing PDFs and small diagnostic tables
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import shutil
+          src=Path("source");dst=Path("IRF_Plots");dst.mkdir()
+          for p in src.rglob("*"):
+              if p.is_file() and p.suffix.lower() in (".pdf",".csv",".txt",".json") and p.stat().st_size<15000000:
+                  target=dst/p.relative_to(src)
+                  target.parent.mkdir(parents=True,exist_ok=True)
+                  shutil.copy2(p,target)
+          pdfs=list(dst.rglob("*.pdf"))
+          print("PDFs:",[(str(p),p.stat().st_size) for p in pdfs])
+          assert len(pdfs)>=3,"Expected US/CN comparison PDFs and EPU peak chart"
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EPU-WTI-IRF-PLOTS-ONLY
+          path: IRF_Plots/
+          if-no-files-found: error
+          retention-days: 90
