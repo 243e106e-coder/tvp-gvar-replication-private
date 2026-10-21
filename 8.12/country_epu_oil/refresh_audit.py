@@ -98,7 +98,7 @@ def main():
             v=q[key].dropna();meta.update(status="downloaded",sha256=sha,first=v.index[0],last=v.index[-1])
         except Exception as e: meta.update(status="failed",error=str(e))
         manifest.append(meta)
-    oil=refresh_one(("OO","WTI","MCOILWTICO","M"));manifest.append(oil)
+    oil=refresh_one(("GL","WTI","MCOILWTICO","M"));manifest.append(oil)
     if oil["status"]=="downloaded":
         q=pd.read_csv(ROOT/"sources/MCOILWTICO_quarterly.csv",index_col="Quarter")
         q.columns=["WTI","WTI_months"];q["LN_WTI"]=np.log(q.WTI.where(q.WTI>0));risk_tables.append(q)
@@ -119,10 +119,9 @@ def main():
                      "Need exact source identifier, unit, adjustment and extraction before updating" if not m else "Source download is not a full-panel validation"))
     pd.DataFrame(inventory).to_csv(ROOT/"macro_inventory.csv",index=False)
     blockers=["Historical workbook raw tables start at 2000Q1, not 1999Q1.",
-       "China mainland EPU 2000-onwards has no 1999 presample; 1979-1999 sheet is separately normalized. No automatic splice.",
        "Exact reproducible GDP/CPI and remaining equity/rate source mappings are unresolved; full 70-series refresh is not complete.",
        "New macro raw file must be rebuilt from verified sources before estimation; old processed workbook is not a substitute.",
-       "Oil block feedback and national Cholesky ordering are modeling assumptions, not instructions fully determined by the teacher's placement request."]
+       "National Cholesky ordering and inherited autonomous Global block require sensitivity checks."]
     report=dict(checked_utc=datetime.now(timezone.utc).isoformat(),
                 macro_series=70,macro_downloads=sum(m.get("status")=="downloaded" for m in manifest[:23]),
                 all_downloads=sum(m.get("status")=="downloaded" for m in manifest),
