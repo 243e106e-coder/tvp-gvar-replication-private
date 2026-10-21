@@ -47,6 +47,7 @@ jobs:
           Rscript --vanilla 8.12/country_epu_oil/test_architecture.R
           Rscript -e 'for(f in list.files("8.12/country_epu_oil",pattern="[.]R$",full.names=TRUE)) parse(f)'
           Rscript --vanilla 8.12/country_epu_oil/patch_estimator.R
+          Rscript -e 'parse("R/BVAR_country_oil.r"); stopifnot(identical(dim(diag(as.numeric(exp(-2)),nrow=1,ncol=1)),c(1L,1L)))'
       - name: Refresh documented sources and disclose remaining blockers
         run: python3 8.12/country_epu_oil/refresh_audit.py
       - uses: actions/upload-artifact@v4
@@ -160,7 +161,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          pattern: country-epu-oil-*-${{ github.run_id }}
+          pattern: country-epu-oil-[CU][NS]-${{ github.run_id }}
           path: results/country_epu_oil/
           merge-multiple: true
       - uses: r-lib/actions/setup-r@v2

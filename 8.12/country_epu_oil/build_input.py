@@ -42,6 +42,7 @@ def transform(raw, risk, p=1, gdp="growth"):
     r=risk.reindex(out.index)
     ok=out.notna().all(axis=1) & np.isfinite(out).all(axis=1)
     ok &= r[needed].notna().all(axis=1)
+    ok &= np.isfinite(r[needed]).all(axis=1)
     ok &= (r[["US_EPU_months","CN_EPU_months","WTI_months"]]==3).all(axis=1)
     if not ok.iloc[0]:
         missing=list(out.columns[out.iloc[0].isna()])+list(r.columns[r.iloc[0].isna()])
