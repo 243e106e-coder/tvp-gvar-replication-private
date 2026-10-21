@@ -1,6 +1,6 @@
 source("8.12/dominant_gpr_vix_irf.R")
 # A national EPU innovation uses the first column of its six-equation Cholesky
-# factor. WTI uses the separate OO scalar innovation. Cross-block innovation
+# factor. WTI uses the separate GL scalar innovation. Cross-block innovation
 # covariance is zero in this inherited blockwise identification.
 dominant_gpr_struct_irf <- function(G,F,sig,x,units,horizon=12,shock_var=NULL,shock_pct=10) {
   target <- active_risk_names[active_shock]
