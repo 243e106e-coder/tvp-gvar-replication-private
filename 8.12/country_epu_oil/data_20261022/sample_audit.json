@@ -1,0 +1,16 @@
+{
+  "effective_start": "2000Q2",
+  "input_start": "2000Q1",
+  "common_end": "2025Q3",
+  "p": 1,
+  "gdp": "growth",
+  "transformations": {
+    "y": "100*dlog(real GDP)",
+    "dp": "100*dlog(CPI)",
+    "r": "diff(rate), percentage points",
+    "de": "100*dlog(REER)",
+    "deq": "100*dlog(equity)"
+  },
+  "first_gap": "2025Q4",
+  "valid_quarters_after_gap": 0
+}

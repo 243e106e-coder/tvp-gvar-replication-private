@@ -1,4 +1,4 @@
-name: Country EPU + Global WTI - Audit and Gated Estimation
+name: Country EPU + Global WTI - Frozen Candidate Estimation
 on:
   push:
     paths:
@@ -38,7 +38,9 @@ jobs:
           python-version: '3.12'
       - run: pip install pandas numpy openpyxl xlrd
       - name: Test dates, units, gaps and independent peak selection
-        run: python3 8.12/country_epu_oil/test_pipeline.py
+        run: |
+          python3 8.12/country_epu_oil/test_pipeline.py
+          python3 8.12/country_epu_oil/test_source_aggregation.py
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: '4.4.2'
@@ -48,8 +50,11 @@ jobs:
           Rscript -e 'for(f in list.files("8.12/country_epu_oil",pattern="[.]R$",full.names=TRUE)) parse(f)'
           Rscript --vanilla 8.12/country_epu_oil/patch_estimator.R
           Rscript -e 'parse("R/BVAR_country_oil.r"); stopifnot(identical(dim(diag(as.numeric(exp(-2)),nrow=1,ncol=1)),c(1L,1L)))'
-      - name: Refresh documented sources and disclose remaining blockers
-        run: python3 8.12/country_epu_oil/refresh_audit.py
+      - name: Verify the 70-series frozen candidate and disclose rate-proxy changes
+        run: |
+          python3 8.12/country_epu_oil/freeze_candidate.py --verify
+          mkdir -p data/country_epu_oil
+          cp 8.12/country_epu_oil/data_20261022/* data/country_epu_oil/
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -58,7 +63,7 @@ jobs:
           retention-days: 90
   preflight:
     needs: audit
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.estimate }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.estimate) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-country-epu]')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,7 +77,7 @@ jobs:
       - run: pip install pandas numpy openpyxl
       - name: Require raw data; transform BEFORE trimming presample
         env:
-          GDP_MODE: ${{ inputs.gdp }}
+          GDP_MODE: ${{ inputs.gdp || 'growth' }}
         run: |
           test -f data/country_epu_oil/raw_macro.csv || { echo 'BLOCKED: verified 1999-onward raw_macro.csv is absent; see DATA-AUDIT'; exit 1; }
           python3 8.12/country_epu_oil/build_input.py --p "$TVPGVAR_P" --gdp "$GDP_MODE"
@@ -146,6 +151,8 @@ jobs:
           Rscript -e 'remotes::install_version("stochvol",version="3.2.9",repos="https://cloud.r-project.org",upgrade="never")'
           sed -i 's|inv_f=solve(f.t(),Vtt.t(), "std").t();|inv_f=solve(arma::mat(f.t()),arma::mat(Vtt.t()), "std").t();|' threshtvp_source/src/threshold_functions.cpp
           R CMD INSTALL threshtvp_source
+      - name: Smoke-test actual scalar Global estimator before expensive national estimation
+        run: Rscript --vanilla 8.12/country_epu_oil/test_scalar_estimator.R
       - name: Estimate country EPU plus oil; preserve all IRF draws
         run: Rscript --vanilla 8.12/country_epu_oil/run.R
       - uses: actions/upload-artifact@v4

@@ -28,10 +28,30 @@ design<-do.call(rbind,lapply(cN,function(cc) {
   X<-X[-seq_len(p),,drop=FALSE]
   stopifnot(all(is.finite(X)),nrow(X)>ncol(X),qr(X)$rank==ncol(X))
   data.frame(unit=cc,equations=ncol(End),Wex=ncol(Wex),
-             observations=nrow(X),regressors=ncol(X),rank=qr(X)$rank)
+             observations=nrow(X),regressors=ncol(X),rank=qr(X)$rank,
+             condition_number=kappa(X,exact=TRUE))
 }))
 write.csv(design,file.path(out,"design_audit.csv"),row.names=FALSE)
+# Conditional OLS residual Breusch-Godfrey LM screens. These are descriptive
+# preflight screens, not proof of weak exogeneity, identification or TVP fit.
+bg<-do.call(rbind,lapply(cN,function(cc) {
+  End<-xglobal[,substr(colnames(xglobal),1,2)==cc,drop=FALSE]
+  Wex<-tvpgvar_extract_wex(gW[[cc]],xglobal,ncol(End))
+  X<-cbind(1,Wex,tvpgvar_wex_lag(Wex,1L),mlag(End,p))[-seq_len(p),,drop=FALSE]
+  Y<-End[-seq_len(p),,drop=FALSE]
+  U<-as.matrix(qr.resid(qr(X),Y))
+  do.call(rbind,lapply(seq_len(ncol(Y)),function(j) do.call(rbind,lapply(c(4L,8L),function(lags) {
+    u<-U[,j];ul<-mlag(matrix(u,ncol=1),lags);idx<-(lags+1L):length(u)
+    Z<-cbind(X[idx,,drop=FALSE],ul[idx,,drop=FALSE]);qz<-qr(Z)
+    if(qz$rank<ncol(Z)) return(data.frame(unit=cc,variable=colnames(Y)[j],lags=lags,LM=NA_real_,pvalue=NA_real_,status="rank deficient auxiliary regression"))
+    er<-qr.resid(qz,u[idx]);LM<-length(idx)*(1-sum(er^2)/sum((u[idx]-mean(u[idx]))^2))
+    data.frame(unit=cc,variable=colnames(Y)[j],lags=lags,LM=LM,pvalue=pchisq(LM,lags,lower.tail=FALSE),status="conditional OLS residual screen")
+  }))))
+}))
+bg$pvalue_BH<-p.adjust(bg$pvalue,method="BH")
+write.csv(bg,file.path(out,"residual_BG_screen.csv"),row.names=FALSE)
 settings<-list(epu_country=epu_country,placement=placement,p=p,q=1L,
+               specification="single_source_rate_proxy_candidate; exploratory",
                saves=saves,burns=burns,thin=thin,horizon=nhor,shock_pct=shock_pct,
                seed=20260816,rate="first difference; level response is draw-wise cumulative",
                gdp="See data/country_epu_oil/sample_audit.json",
@@ -40,7 +60,12 @@ settings<-list(epu_country=epu_country,placement=placement,p=p,q=1L,
                interpretation="Recursive EPU and oil-price innovations, not isolated causal policy/supply shocks")
 dput(settings,file=file.path(out,"settings.R"))
 file.copy("data/country_epu_oil/sample_audit.json",out,overwrite=TRUE)
-file.copy("data/country_epu_oil/refresh_manifest.csv",out,overwrite=TRUE)
+for(f in c("rate_proxy_changes.csv","verified_macro_inventory.csv","source_receipts.json","snapshot_hashes.json","READINESS.json"))
+  stopifnot(file.copy(file.path("data/country_epu_oil",f),out,overwrite=TRUE))
+writeLines(c("EXPLORATORY RATE-PROXY CANDIDATE: not an unchanged update of inherited rate measures.",
+  "CN: publisher's 1-day repo; US: OECD overnight call-money rate; SG: MAS 1-year Treasury-bill yield; TR: IMF discount rate.",
+  "Each proxy uses one full source history, never cross-measure fills. See rate_proxy_changes.csv.",
+  "One MCMC chain per country. ESS screening is not multi-chain R-hat convergence verification."),file.path(out,"CANDIDATE_LIMITATIONS.txt"))
 writeLines(c("EPU is endogenous only in its economic country's national module.",
              "WTI is in a separate autonomous scalar GL module: no macro or EPU feedback into oil equations.",
              "Other countries receive trade-weighted foreign macro variables and common EPU/WTI controls.",
@@ -92,6 +117,21 @@ predDens<-tryCatch(sfLapply(seq_along(cN),function(i) {
 
 save(predDens,Data.setup,settings,file=file.path(out,"posterior.rda"))
 A<-lapply(predDens,`[[`,"ALPHA");S<-lapply(predDens,`[[`,"SIGMApost")
+ess<-do.call(rbind,lapply(seq_along(A),function(i) {
+  a<-A[[i]];times<-unique(c(1L,ceiling(dim(a)[1]/2),dim(a)[1]))
+  constant<-which(dimnames(a)[[2]]=="constant")[1]
+  lag1<-which(dimnames(a)[[2]]=="Ylag1")
+  do.call(rbind,lapply(times,function(ti) do.call(rbind,lapply(seq_len(dim(a)[3]),function(j) {
+    do.call(rbind,lapply(c(constant,lag1[j]),function(k) {
+      z<-as.numeric(a[ti,k,j,]);ok<-all(is.finite(z))&&sd(z)>0
+      val<-if(ok)tryCatch(as.numeric(coda::effectiveSize(coda::mcmc(z))),error=function(e)NA_real_)else NA_real_
+      data.frame(unit=cN[i],date=Data.setup$quarters[p+ti],equation=dimnames(a)[[3]][j],
+        coefficient=if(k==constant)"constant"else"own_lag1",draws=length(z),ESS=val,
+        status=if(ok)"single-chain ESS screen; not R-hat"else"constant or nonfinite trace")
+    }))
+  }))))
+}))
+write.csv(ess,file.path(out,"posterior_ESS_screen.csv"),row.names=FALSE)
 globalG<-lapply(predDens,`[[`,"W")
 nd<-dim(A[[1]])[4];K<-ncol(xglobal)
 stopifnot(all(vapply(A,function(z)dim(z)[4],integer(1))==nd),

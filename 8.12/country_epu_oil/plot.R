@@ -20,7 +20,7 @@ for(ec in c("CN","US")) {
         geom_ribbon(aes(ymin=low68,ymax=high68),fill="#0875D1",alpha=.4)+
         geom_line(color="#003E85",linewidth=.65)+facet_wrap(~country,ncol=4,scales="free_y")+
         theme_bw()+labs(title=paste(ec,"EPU + WTI |",sh,"shock |",date_i,"|",v),
-          subtitle=paste("Peak series:",paste(pp$series,collapse=","),"| period:",paste(pp$period,collapse=","),
+          subtitle=paste("Exploratory rate-proxy candidate | Peak series:",paste(pp$series,collapse=","),
              "|",filter_i,"|",kind,"| dark 68%, light 90% credible intervals"),
           x="Quarters after +10% impact",y="Response in transformed variable units"))
     }

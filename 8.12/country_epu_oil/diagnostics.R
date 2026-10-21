@@ -1,6 +1,11 @@
 # Descriptive unit-root screens, no automatic model selection by p-value.
 suppressPackageStartupMessages(library(tseries))
 d<-read.csv("data/country_epu_oil/model_input.csv",check.names=FALSE)
+risk<-read.csv("data/country_epu_oil/risk_quarterly.csv",check.names=FALSE)
+ix<-match(d$Quarter,risk$Quarter)
+for(v in c("LN_CN_EPU","LN_US_EPU","LN_WTI")) d[[v]]<-risk[[v]][ix]
+# Screens use the actual estimation window, not the initial-lag observation.
+d<-d[-1,,drop=FALSE]
 rows<-lapply(names(d)[-1],function(v) {
   x<-d[[v]];stopifnot(all(is.finite(x)))
   ad<-tryCatch(suppressWarnings(adf.test(x)),error=function(e)e)

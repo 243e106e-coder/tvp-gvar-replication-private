@@ -1,0 +1,15 @@
+{
+  "rule": {
+    "height_quantile": 0.75,
+    "minimum_prominence_sd": 0.5,
+    "minimum_distance_quarters": 4,
+    "neighbourhood_quarters": 4,
+    "endpoints": "excluded: cannot confirm a two-sided peak",
+    "ties": "first quarter of a flat peak; earliest date wins equal-height selection",
+    "interpretation": "statistical representative peaks; event labels require separate verification"
+  },
+  "WTI": "Same dates in both models; separate model responses",
+  "selection": "Quarterly level peaks, never IRF significance",
+  "first": "2000Q2",
+  "last": "2025Q3"
+}

@@ -1,0 +1,5 @@
+country,old_measure,candidate_measure,selection_reason
+CN,3-month interbank rate (missing 2006-01),"1-day repo, Atlanta Fed/Higgins-Zha; fraction multiplied by 100",Use a complete single observed history; no cross-measure gap filling; exploratory proxy change
+US,Inherited short-rate series; 3-month OECD comparator missing 2020-04,OECD immediate/call-money overnight rate; full single history,Use a complete single observed history; no cross-measure gap filling; exploratory proxy change
+SG,Inherited rate lacks a single-source SORA history before 2005,"MAS/SingStat 1-year Treasury-bill yield, monthly end-period; full single history",Use a complete single observed history; no cross-measure gap filling; exploratory proxy change
+TR,OECD overnight interbank rate; nine missing months in 2023,"IMF discount rate, percent per annum; full single history, not a fill for interbank rates",Use a complete single observed history; no cross-measure gap filling; exploratory proxy change
