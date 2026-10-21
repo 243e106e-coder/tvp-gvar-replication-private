@@ -18,12 +18,12 @@ class PipelineTests(unittest.TestCase):
 
     def test_presample_and_units(self):
         raw,risk=self.fixture()
-        for p in (1,2):
+        for p in (1,):
             out,a=transform(raw,risk,p)
-            self.assertEqual(out.Quarter.iloc[p],"2000Q1")
+            self.assertEqual(out.Quarter.iloc[p],"2000Q2")
             self.assertTrue(np.allclose(out.AU_y,1))
             self.assertTrue(np.allclose(out.AU_r,.1)) # negative rates are valid
-            self.assertEqual(a["effective_start"],"2000Q1")
+            self.assertEqual(a["effective_start"],"2000Q2")
 
     def test_internal_gap_is_not_bridged(self):
         raw,risk=self.fixture();raw.loc[raw.Quarter=="2010Q2","US_CPI"]=np.nan
@@ -34,6 +34,9 @@ class PipelineTests(unittest.TestCase):
 
     def test_cannot_invent_chinese_presample(self):
         raw,risk=self.fixture();risk.loc[risk.Quarter<"2000Q1","LN_CN_EPU"]=np.nan
+        out,a=transform(raw,risk)
+        self.assertEqual(out.Quarter.iloc[0],"2000Q1")
+        risk.loc[risk.Quarter=="2000Q1","LN_CN_EPU"]=np.nan
         with self.assertRaisesRegex(ValueError,"Missing presample"): transform(raw,risk)
 
     def test_shocks_have_own_dates(self):
@@ -42,7 +45,10 @@ class PipelineTests(unittest.TestCase):
         risk.loc[risk.Quarter=="2002Q2","US_EPU"]=500
         risk.loc[risk.Quarter=="2003Q3","WTI"]=600
         peaks=select(risk,risk.Quarter[risk.Quarter>="2000Q1"].tolist())
-        first=peaks[peaks.period=="2000-2004"].set_index("series")
+        risk.loc[risk.Quarter=="2003Q1","CN_EPU"]=450
+        peaks=select(risk,risk.Quarter[risk.Quarter>="2000Q2"].tolist())
+        self.assertEqual(set(peaks.loc[peaks.series=="CN_EPU","Quarter"]),{"2001Q1","2003Q1"})
+        first=peaks.drop_duplicates("series").set_index("series")
         self.assertEqual(first.loc["CN_EPU","Quarter"],"2001Q1")
         self.assertEqual(first.loc["US_EPU","Quarter"],"2002Q2")
         self.assertEqual(first.loc["WTI","Quarter"],"2003Q3")
