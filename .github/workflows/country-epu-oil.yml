@@ -1,4 +1,4 @@
-name: Country EPU + Separate Oil - Audit and Gated Estimation
+name: Country EPU + Global WTI - Audit and Gated Estimation
 on:
   push:
     paths:
