@@ -1,4 +1,5 @@
-source("8.12/patch_BVAR_dominant_unit.R")
+local({
+source("8.12/patch_BVAR_dominant_unit.R",local=TRUE)
 s<-paste(readLines("R/BVAR_ttvp_dominant.r"),collapse="\n")
 replace_once<-function(old,new) {
   if(length(gregexpr(old,s,fixed=TRUE)[[1]])!=1L||!grepl(old,s,fixed=TRUE))
@@ -18,3 +19,4 @@ replace_once('diag(exp(H_store[nn,,ii]))', 'diag(as.numeric(exp(H_store[nn,,ii])
 # Reject singular A0 rather than silently applying the inherited generalized inverse.
 replace_once('ans <- MASS::ginv(A)', 'stop("Singular A0; no generalized inverse in this specification: ",context)')
 writeLines(s,"R/BVAR_country_oil.r")
+})

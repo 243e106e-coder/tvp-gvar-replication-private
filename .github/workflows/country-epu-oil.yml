@@ -49,6 +49,7 @@ jobs:
           Rscript --vanilla 8.12/country_epu_oil/test_architecture.R
           Rscript -e 'for(f in list.files("8.12/country_epu_oil",pattern="[.]R$",full.names=TRUE)) parse(f)'
           Rscript --vanilla 8.12/country_epu_oil/patch_estimator.R
+          Rscript -e 'out <- "RESULT_DIRECTORY_SENTINEL"; source("8.12/country_epu_oil/patch_estimator.R"); stopifnot(out == "RESULT_DIRECTORY_SENTINEL")'
           Rscript -e 'parse("R/BVAR_country_oil.r"); stopifnot(identical(dim(diag(as.numeric(exp(-2)),nrow=1,ncol=1)),c(1L,1L)))'
       - name: Verify the 70-series frozen candidate and disclose rate-proxy changes
         run: |
