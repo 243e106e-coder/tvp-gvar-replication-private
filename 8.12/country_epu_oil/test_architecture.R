@@ -12,7 +12,7 @@ for(ec in c("CN","US")) for(p in 1:2) {
   w<-matrix(1/13,14,14,dimnames=list(cc,cc));diag(w)<-0
   d<-prepare_country_epu_oil(ec,base,risk,w);x<-d$bigx;K<-ncol(x)
   stopifnot(sum(startsWith(colnames(x),paste0(ec,"_")))==6,
-            identical(colnames(x)[K],"OO_wti"),
+            identical(colnames(x)[K],"GL_wti"),
             !any(grepl("_wti$",colnames(x)[1:(K-1)])))
   aa<-ss<-vector("list",length(d$countries))
   for(i in seq_along(d$countries)) {
@@ -23,7 +23,7 @@ for(ec in c("CN","US")) for(p in 1:2) {
     a<-array(0,c(1,length(tags),k),dimnames=list(NULL,tags,own))
     a[1,which(tags=="Ylag1"),]<-diag(.5,k)
     if(unit==ec) {
-      oilrow<-which(rownames(d$gW[[i]])=="OO_wti")-k
+      oilrow<-which(rownames(d$gW[[i]])=="GL_wti")-k
       a[1,which(tags=="Wex")[oilrow],1]<-.2
       # Make reduced lag F exactly .5 I after contemporaneous solve.
       a[1,which(tags=="Wexlag1")[oilrow],1]<--.1
