@@ -35,14 +35,14 @@ settings<-list(epu_country=epu_country,placement=placement,p=p,q=1L,
                saves=saves,burns=burns,thin=thin,horizon=nhor,shock_pct=shock_pct,
                seed=20260816,rate="first difference; level response is draw-wise cumulative",
                gdp="See data/country_epu_oil/sample_audit.json",
-               order=paste0(epu_country, ":[EPU,y,dp,r,de,deq]; OO:[WTI]"),
+               order=paste0(epu_country, ":[EPU,y,dp,r,de,deq]; GL:[WTI]"),
                sample=range(Data.setup$quarters),
                interpretation="Recursive EPU and oil-price innovations, not isolated causal policy/supply shocks")
 dput(settings,file=file.path(out,"settings.R"))
 file.copy("data/country_epu_oil/sample_audit.json",out,overwrite=TRUE)
 file.copy("data/country_epu_oil/refresh_manifest.csv",out,overwrite=TRUE)
 writeLines(c("EPU is endogenous only in its economic country's national module.",
-             "WTI is in a separate autonomous scalar OO module: no macro or EPU feedback into oil equations.",
+             "WTI is in a separate autonomous scalar GL module: no macro or EPU feedback into oil equations.",
              "Other countries receive trade-weighted foreign macro variables and common EPU/WTI controls.",
              "National Cholesky order EPU,y,dp,r,de,deq; blockwise innovations are uncorrelated by assumption.",
              "This restriction does not identify an oil-supply shock.",
@@ -54,7 +54,7 @@ peaks<-read.csv(file.path(peak_dir,"peak_dates.csv"),stringsAsFactors=FALSE)
 peaks<-peaks[peaks$series %in% c(paste0(epu_country,"_EPU"),"WTI"),]
 chosen<-sort(unique(as.character(peaks$Quarter)))
 available<-Data.setup$quarters[-seq_len(p)]
-stopifnot(available[1]=="2000Q1",length(chosen)>0,all(chosen %in% available))
+stopifnot(available[1]=="2000Q2",length(chosen)>0,all(chosen %in% available))
 for(f in c("peak_dates.csv","peak_rules.json"))
   stopifnot(file.copy(file.path(peak_dir,f),out,overwrite=TRUE))
 write.csv(peaks,file.path(out,"selected_peak_dates.csv"),row.names=FALSE)
