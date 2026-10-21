@@ -5,7 +5,7 @@ replace_once<-function(old,new) {
     stop("Estimator patch does not match source: ",old)
   s<<-sub(old,new,s,fixed=TRUE)
 }
-# Keep the one-equation OO block and p=1 lag matrices two-dimensional.
+# Keep the one-equation GL block and p=1 lag matrices two-dimensional.
 replace_once('End <- xglobal[,substr(colnames(xglobal),1,2)==Names[[nr]]]',
              'End <- xglobal[,substr(colnames(xglobal),1,2)==Names[[nr]],drop=FALSE]')
 replace_once('X1 <- X1[(p+1):nrow(X1),]', 'X1 <- X1[(p+1):nrow(X1),,drop=FALSE]')
