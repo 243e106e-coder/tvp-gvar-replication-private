@@ -1,4 +1,4 @@
-"""Strict quarterly levels -> transformed inputs with a 2000Q1 effective start.
+"""Strict quarterly levels -> transformed inputs with a 2000Q2 effective start.
 
 raw_macro.csv columns: Quarter and CC_GDP, CC_CPI, CC_RATE, CC_REER, CC_EQ.
 All series must have observation-level source lineage reviewed separately.
@@ -32,8 +32,9 @@ def transform(raw, risk, p=1, gdp="growth"):
                 s=s if source=="GDP" and gdp=="log_level" else 100*s.diff()
             else: s=s.diff() # percentage points; never log interest rates
             out[f"{cc}_{target}"]=s
-    # Keep p transformed presample rows so the estimator loses no 2000Q1 row.
-    first=pd.Period("2000Q1",freq="Q")-p
+    # Never use pre-2000 Chinese EPU. 2000Q1 is the one initial lag.
+    first=pd.Period("2000Q1",freq="Q")
+    if p != 1: raise ValueError("Agreed main specification is p=1, effective start 2000Q2")
     out=out.loc[first:]
     risk=risk.set_index("Quarter").copy()
     if risk.index.duplicated().any(): raise ValueError("Duplicate risk quarters")
@@ -50,10 +51,10 @@ def transform(raw, risk, p=1, gdp="growth"):
     # Internal gaps terminate the common sample. Later isolated valid rows are
     # disclosed and are never bridged by dropping the gap.
     bad=np.flatnonzero(~ok.to_numpy());end=bad[0] if len(bad) else len(out)
-    if end<=p+30: raise ValueError("Insufficient continuous common sample from 2000Q1")
+    if end<=p+30: raise ValueError("Insufficient continuous common sample from 2000Q2")
     sample=out.iloc[:end].copy(); sample.index=sample.index.astype(str)
     sample.index.name="Quarter"
-    audit={"effective_start":"2000Q1","input_start":str(first),"common_end":sample.index[-1],
+    audit={"effective_start":"2000Q2","input_start":str(first),"common_end":sample.index[-1],
            "p":p,"gdp":gdp,"transformations":{"y":"100*dlog(real GDP)" if gdp=="growth" else "log(real GDP)",
              "dp":"100*dlog(CPI)","r":"diff(rate), percentage points","de":"100*dlog(REER)","deq":"100*dlog(equity)"},
            "first_gap":str(out.index[end]) if end<len(out) else None,
