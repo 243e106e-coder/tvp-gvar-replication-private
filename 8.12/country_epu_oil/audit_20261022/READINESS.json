@@ -1,0 +1,14 @@
+{
+  "checked_utc": "2026-10-21T16:04:12.813856+00:00",
+  "macro_series": 70,
+  "macro_downloads": 14,
+  "all_downloads": 17,
+  "estimation_ready": false,
+  "blockers": [
+    "Historical workbook raw tables start at 2000Q1, not 1999Q1.",
+    "China mainland EPU 2000-onwards has no 1999 presample; 1979-1999 sheet is separately normalized. No automatic splice.",
+    "Exact reproducible GDP/CPI and remaining equity/rate source mappings are unresolved; full 70-series refresh is not complete.",
+    "New macro raw file must be rebuilt from verified sources before estimation; old processed workbook is not a substitute.",
+    "Oil block feedback and national Cholesky ordering are modeling assumptions, not instructions fully determined by the teacher's placement request."
+  ]
+}

@@ -1,0 +1,71 @@
+country,variable,old_first,old_last,old_missing,refresh_status,source_id,new_first,new_last,note
+AU,GDP,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+BR,GDP,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+CA,GDP,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+CH,GDP,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+CN,GDP,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+EA,GDP,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+UK,GDP,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+JP,GDP,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+KR,GDP,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+NO,GDP,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+SG,GDP,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+TR,GDP,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+US,GDP,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+ZA,GDP,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+AU,CPI,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+BR,CPI,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+CA,CPI,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+CH,CPI,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+CN,CPI,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+EA,CPI,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+UK,CPI,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+JP,CPI,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+KR,CPI,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+NO,CPI,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+SG,CPI,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+TR,CPI,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+US,CPI,2000Q1,2026Q1,2,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+ZA,CPI,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+AU,RATE,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+BR,RATE,2000Q1,2026Q2,0,failed,IRSTCI01BRQ156N,,,Source download is not a full-panel validation
+CA,RATE,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+CH,RATE,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+CN,RATE,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+EA,RATE,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+UK,RATE,2000Q1,2026Q1,1,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+JP,RATE,2000Q1,2026Q2,0,failed,IRSTCI01JPM156N,,,Source download is not a full-panel validation
+KR,RATE,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+NO,RATE,2000Q1,2026Q2,0,failed,IR3TIB01NOQ156N,,,Source download is not a full-panel validation
+SG,RATE,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+TR,RATE,2000Q1,2026Q2,0,failed,IRSTCI01TRM156N,,,Do not use CBRT borrowing rate as an undocumented substitute for OECD interbank rate
+US,RATE,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+ZA,RATE,2000Q1,2026Q2,0,failed,IR3TIB01ZAQ156N,,,Source download is not a full-panel validation
+AU,REER,2000Q1,2026Q2,0,downloaded,RBAUBIS,1999Q1,2026Q2,Source download is not a full-panel validation
+BR,REER,2000Q1,2026Q2,0,downloaded,RBBRBIS,1999Q1,2026Q2,Source download is not a full-panel validation
+CA,REER,2000Q1,2026Q2,0,downloaded,RBCABIS,1999Q1,2026Q2,Source download is not a full-panel validation
+CH,REER,2000Q1,2026Q2,0,downloaded,RBCHBIS,1999Q1,2026Q2,Source download is not a full-panel validation
+CN,REER,2000Q1,2026Q2,0,downloaded,RBCNBIS,1999Q1,2026Q2,Source download is not a full-panel validation
+EA,REER,2000Q1,2026Q2,0,downloaded,RBXMBIS,1999Q1,2026Q2,Source download is not a full-panel validation
+UK,REER,2000Q1,2026Q2,0,downloaded,RBGBBIS,1999Q1,2026Q2,Source download is not a full-panel validation
+JP,REER,2000Q1,2026Q2,0,downloaded,RBJPBIS,1999Q1,2026Q2,Source download is not a full-panel validation
+KR,REER,2000Q1,2026Q2,0,downloaded,RBKRBIS,1999Q1,2026Q2,Source download is not a full-panel validation
+NO,REER,2000Q1,2026Q2,0,downloaded,RBNOBIS,1999Q1,2026Q2,Source download is not a full-panel validation
+SG,REER,2000Q1,2026Q2,0,downloaded,RBSGBIS,1999Q1,2026Q2,Source download is not a full-panel validation
+TR,REER,2000Q1,2026Q2,0,downloaded,RBTRBIS,1999Q1,2026Q2,Source download is not a full-panel validation
+US,REER,2000Q1,2026Q2,0,downloaded,RBUSBIS,1999Q1,2026Q2,Source download is not a full-panel validation
+ZA,REER,2000Q1,2026Q2,0,downloaded,RBZABIS,1999Q1,2026Q2,Source download is not a full-panel validation
+AU,EQ,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+BR,EQ,2000Q1,2026Q2,0,failed,SPASTT01BRQ661N,,,Source download is not a full-panel validation
+CA,EQ,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+CH,EQ,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+CN,EQ,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+EA,EQ,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+UK,EQ,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+JP,EQ,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+KR,EQ,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+NO,EQ,2000Q1,2026Q2,0,failed,SPASTT01NOQ661N,,,Source download is not a full-panel validation
+SG,EQ,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+TR,EQ,2000Q1,2026Q2,0,failed,SPASTT01TRQ661N,,,Source download is not a full-panel validation
+US,EQ,2000Q1,2026Q2,0,unresolved_source,,,,"Need exact source identifier, unit, adjustment and extraction before updating"
+ZA,EQ,2000Q1,2026Q2,0,failed,SPASTT01ZAM661N,,,Source download is not a full-panel validation
