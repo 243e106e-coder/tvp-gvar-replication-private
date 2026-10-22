@@ -1,0 +1,3 @@
+sources/*.html
+__pycache__/
+plots/

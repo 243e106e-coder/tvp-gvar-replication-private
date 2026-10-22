@@ -1,0 +1,12 @@
+country,period,value,source_id,source_url
+CN,2006-01,,IR3TIB01CNM156N,https://fred.stlouisfed.org/data/IR3TIB01CNM156N
+US,2020-04,,IR3TIB01USM156N,https://fred.stlouisfed.org/data/IR3TIB01USM156N
+TR,2023-02,,IRSTCI01TRM156N,https://fred.stlouisfed.org/data/IRSTCI01TRM156N
+TR,2023-03,,IRSTCI01TRM156N,https://fred.stlouisfed.org/data/IRSTCI01TRM156N
+TR,2023-04,,IRSTCI01TRM156N,https://fred.stlouisfed.org/data/IRSTCI01TRM156N
+TR,2023-05,,IRSTCI01TRM156N,https://fred.stlouisfed.org/data/IRSTCI01TRM156N
+TR,2023-06,,IRSTCI01TRM156N,https://fred.stlouisfed.org/data/IRSTCI01TRM156N
+TR,2023-09,,IRSTCI01TRM156N,https://fred.stlouisfed.org/data/IRSTCI01TRM156N
+TR,2023-10,,IRSTCI01TRM156N,https://fred.stlouisfed.org/data/IRSTCI01TRM156N
+TR,2023-11,,IRSTCI01TRM156N,https://fred.stlouisfed.org/data/IRSTCI01TRM156N
+TR,2023-12,,IRSTCI01TRM156N,https://fred.stlouisfed.org/data/IRSTCI01TRM156N

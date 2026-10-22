@@ -1,0 +1,28 @@
+{
+  "exploratory_candidate_ready": true,
+  "formal_original_rate_specification_ready": false,
+  "data_series": 70,
+  "effective_start": "2000Q2",
+  "common_end": "2025Q3",
+  "estimation_quarters": 102,
+  "first_raw_gap": "2025Q4",
+  "first_raw_gap_variables": [
+    "US_CPI"
+  ],
+  "rate_proxy_changes": [
+    "CN: 1-day repo",
+    "US: overnight call-money rate",
+    "SG: 1-year Treasury bill yield",
+    "TR: discount rate"
+  ],
+  "no_imputation": true,
+  "no_cross_series_splicing": true,
+  "limitations": [
+    "Four rate proxies differ from inherited definitions; exploratory candidate only.",
+    "China GDP and repo are publisher-constructed quarterly series, not untouched NBS raw releases; see Atlanta Fed readme.",
+    "Native quarterly Australian CPI is used as a published full-quarter statistic; monthly series require exactly 3 observed months.",
+    "Euro-area HICP uses official changing composition; no fixed-membership aggregate was constructed.",
+    "Source snapshots include observations after common_end; these are not bridged across gaps.",
+    "Trade-weight lineage remains unresolved; unchanged weight matrix is an additional model limitation."
+  ]
+}

@@ -1,0 +1,29 @@
+[
+  {
+    "original_file": "fred_US_3m.html",
+    "download_sha256": "0e49a532de6d10910e07acc954a12ec29de41399bd1a720d4d3eadb7f7787232",
+    "selected_file": "fred_US_3m.csv",
+    "selected_sha256": "6ec2d8876fbb11ef2cff2d526a3f63ae215157db3161d798364b05d0edd5ffa4",
+    "note": "Numeric observation table extracted without filling missing values; original HTML retained locally, not republished."
+  },
+  {
+    "original_file": "fred_CN_3m.html",
+    "download_sha256": "644de2a963a36cca0d9a7fcadf973a85b9e19c9dc32644d71b650f82118cf6f4",
+    "selected_file": "fred_CN_3m.csv",
+    "selected_sha256": "5699188f7e1c8dfdf16f541fa18259203b4cf8caf2cba1d3c81781b7a31d6eb3",
+    "note": "Numeric observation table extracted without filling missing values; original HTML retained locally, not republished."
+  },
+  {
+    "original_file": "fred_TR_overnight.html",
+    "download_sha256": "82da9a4959b5fe1fbc426d4f0257d745291554b96375db0647ee2ef4b027834f",
+    "selected_file": "fred_TR_overnight.csv",
+    "selected_sha256": "8390295ddd4276bca2a0e9a3275f239908d14b6e378e4b96e5435e122c0f86c4",
+    "note": "Numeric observation table extracted without filling missing values; original HTML retained locally, not republished."
+  },
+  {
+    "original_file": "cbrt_overnight.html",
+    "download_sha256": "15f2e3510457a8a82ed94d6ae5bc982998fe41c46def48ae948953a81f8268bd",
+    "selected_file": "cbrt_overnight.csv",
+    "selected_sha256": "ec2bd45182555c9bd943b66b9f9ea34cade762b01289b0aea93553517e8b1770"
+  }
+]

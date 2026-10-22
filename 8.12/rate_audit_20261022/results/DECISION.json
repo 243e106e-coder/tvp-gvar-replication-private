@@ -1,0 +1,27 @@
+{
+  "source_run": 39647769567,
+  "sample_start": "2000Q2",
+  "sample_end": "2025Q3",
+  "sample_n": 102,
+  "all_14_frozen_rate_differences_verified": true,
+  "chosen_default": "retain first difference; no automatic variable or source replacement",
+  "homogeneous_14_country_rate_ready": false,
+  "unresolved_countries": [
+    "CN",
+    "US",
+    "SG",
+    "TR"
+  ],
+  "CBRT_month_end_substitution_rejected_overlap_mismatches": 55,
+  "tests": {
+    "difference": {
+      "ADF_rejects": 14,
+      "KPSS_rejects": 1
+    },
+    "level": {
+      "ADF_rejects": 7,
+      "KPSS_rejects": 9
+    }
+  },
+  "important": "Source comparability remains unresolved. Stationarity screens do not validate the proxies, identify policy shocks, or prove convergence."
+}

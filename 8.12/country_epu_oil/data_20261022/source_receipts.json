@@ -1,0 +1,240 @@
+[
+  {
+    "file": "oecd_gdp.csv",
+    "url": "https://sdmx.oecd.org/public/rest/v1/data/OECD.SDD.NAD,DSD_NAMAIN1@DF_QNA_EXPENDITURE_INDICES,1.1/Q.Y.AUS+BRA+CAN+CHE+EA+GBR+JPN+KOR+NOR+TUR+USA+ZAF.S1.S1.B1GQ._Z._Z._Z.IX.LR.N.T0102?startPeriod=1999-Q1&format=csvfile",
+    "sha256": "13212b2f6dfdf429cce586b8b7750ff8becbf7d29ec75d36c3eeaf88e6520f9c",
+    "bytes": 182607,
+    "retrieved_utc": "2026-10-21T17:26:39.216621+00:00"
+  },
+  {
+    "file": "china_macro_202609.zip",
+    "url": "https://www.atlantafed.org/-/media/Project/Atlanta/FRBA/Documents/research-and-data/data/china-macroeconomy/data/2026-09-data.zip",
+    "sha256": "890757837d7aff0281ee92739643c8df3219ddbb3b96cd2078276357f29c5c93",
+    "bytes": 870162,
+    "retrieved_utc": "2026-10-21T17:28:06.493368+00:00"
+  },
+  {
+    "file": "sg_gdp.csv",
+    "url": "https://api-open.data.gov.sg/v1/public/api/datasets/d_8ab3c73416b81c8a20ac8a93a1c80a40/poll-download",
+    "sha256": "e2eacba07bdb97d3aaf90586531a54d7099aa3ff5d7fb5636d9c35b40927cbdf",
+    "bytes": 37758,
+    "retrieved_utc": "2026-10-21T17:30:01.664489+00:00"
+  },
+  {
+    "file": "sg_cpi.csv",
+    "url": "https://api-open.data.gov.sg/v1/public/api/datasets/d_bdaff844e3ef89d39fceb962ff8f0791/poll-download",
+    "sha256": "eaec5be1184c78d12a1f6b693469cebdaf1ad83c8fd5e616a84098ab2177573f",
+    "bytes": 658289,
+    "retrieved_utc": "2026-10-21T17:32:17.458483+00:00"
+  },
+  {
+    "file": "sg_rate.csv",
+    "url": "https://api-open.data.gov.sg/v1/public/api/datasets/d_5fe5a4bb4a1ecc4d8a56a095832e2b24/poll-download",
+    "sha256": "141c8a125ab7b0e25372ecfb1630571d41b25dec7ce623db1cd94725b028272d",
+    "bytes": 21374,
+    "retrieved_utc": "2026-10-21T17:32:34.473466+00:00"
+  },
+  {
+    "file": "oecd_cpi_1999.csv",
+    "url": "https://sdmx.oecd.org/public/rest/v1/data/OECD.SDD.TPS,DSD_PRICES@DF_PRICES_ALL,1.0/CHN+USA+JPN+KOR+SGP+GBR+EA19+CHE+CAN+AUS+NOR+BRA+TUR+ZAF.M.N.CPI.IX._T.N._Z?startPeriod=1999-01&format=csvfile",
+    "sha256": "556f049a042fb06304484265c5c59a9cac0de3526080274adc4d32625949248b",
+    "bytes": 337153,
+    "retrieved_utc": "2026-10-21T17:26:52.096714+00:00"
+  },
+  {
+    "file": "oecd_cpi_2018.csv",
+    "url": "https://sdmx.oecd.org/public/rest/v1/data/OECD.SDD.TPS,DSD_PRICES_COICOP2018@DF_PRICES_C2018_ALL,1.0/AUS+BRA+CAN+CHE+CHN+EA20+GBR+JPN+KOR+NOR+TUR+USA+ZAF.M+Q.N.CPI.IX._T.N._Z?startPeriod=1999-01&format=csvfile",
+    "sha256": "fc99621e9ee7cec4343fbb738b476842a3143e5bee7a8acbdabaff555c035472",
+    "bytes": 310074,
+    "retrieved_utc": "2026-10-21T17:29:05.841510+00:00"
+  },
+  {
+    "file": "ecb_hicp.csv",
+    "url": "https://data-api.ecb.europa.eu/service/data/ICP/M.U2.N.000000.4.INX?startPeriod=1999-01&format=csvdata",
+    "sha256": "e04881d61da782cfaae1d41583d32134511e6eb573a9ea95ca01859bf2c91f10",
+    "bytes": 92605,
+    "retrieved_utc": "2026-10-21T17:31:10.915200+00:00"
+  },
+  {
+    "file": "ecb_eurostoxx50.csv",
+    "url": "https://data-api.ecb.europa.eu/service/data/FM/M.U2.EUR.DS.EI.DJES50I.HSTA?startPeriod=1999-01&format=csvdata",
+    "sha256": "bbf467cfe35f3f732356705202ffcccfe25b0005c3a4e55a4fdc8203439d5677",
+    "bytes": 92081,
+    "retrieved_utc": "2026-10-21T17:35:52.888587+00:00"
+  },
+  {
+    "file": "oecd_financial.csv",
+    "url": "https://sdmx.oecd.org/public/rest/v1/data/OECD.SDD.STES,DSD_STES@DF_FINMARK,4.0/AUS+BRA+CAN+CHE+CHN+EA20+GBR+JPN+KOR+NOR+TUR+USA+ZAF.M+Q.SHARE+IRSTCI+IR3TIB......?startPeriod=1999-01&format=csvfile",
+    "sha256": "a1da27afa0411a8b7d0006588955b63f82e8c81026dad72bac827dc177ec9f20",
+    "bytes": 1522275,
+    "retrieved_utc": "2026-10-21T17:28:06.845920+00:00"
+  },
+  {
+    "file": "imf_interest.csv",
+    "url": "https://api.imf.org/external/sdmx/2.1/data/IMF.STA,MFS_IR,9.0.0/TUR+SGP+CHN+USA.MMRT_RT_PT_A_PT+IBRT_S3M_RT_PT_A_PT+DISR_RT_PT_A_PT.M?startPeriod=1999-01",
+    "sha256": "8f53a5ee16cb4f1a63777f214089486ddeed02db9aadddd7de976298d619a9b0",
+    "bytes": 179545,
+    "retrieved_utc": "2026-10-21T17:36:16.765502+00:00"
+  },
+  {
+    "file": "yahoo_AU.json",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5EAXJO?period1=915148800&period2=1792627200&interval=1d",
+    "sha256": "dba5b496ab9bdf33d50606d9d79063c1eb50408f98b1cf209d41464886b13846",
+    "bytes": 626831,
+    "retrieved_utc": "2026-10-21T17:32:43.001586+00:00"
+  },
+  {
+    "file": "yahoo_CA.json",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPTSE?period1=915148800&period2=1792627200&interval=1d",
+    "sha256": "ef2d160cdf2c2b4385a2ee8875863f6bbfd60a2799f814a9b4566424084d3196",
+    "bytes": 652940,
+    "retrieved_utc": "2026-10-21T17:32:42.985143+00:00"
+  },
+  {
+    "file": "yahoo_CH.json",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5ESSMI?period1=915148800&period2=1792627200&interval=1d",
+    "sha256": "f72c37e133ee0215eaae71ca6a1e7b97c7592601115a9a210d38e1b3124a1fc6",
+    "bytes": 667207,
+    "retrieved_utc": "2026-10-21T17:32:43.081448+00:00"
+  },
+  {
+    "file": "yahoo_CN.json",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/000001.SS?period1=915148800&period2=1792627200&interval=1d",
+    "sha256": "cd386f2169b86e1b132a35d047fc514ebfb208a9e4596e34888b6774a1ff2790",
+    "bytes": 700143,
+    "retrieved_utc": "2026-10-21T17:32:42.972431+00:00"
+  },
+  {
+    "file": "yahoo_UK.json",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5EFTSE?period1=915148800&period2=1792627200&interval=1d",
+    "sha256": "85af5e3f0fe699f90e1274c95137f5a81fd84900cae0ac8fde53a5de00ad5a06",
+    "bytes": 666161,
+    "retrieved_utc": "2026-10-21T17:32:48.537586+00:00"
+  },
+  {
+    "file": "yahoo_JP.json",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5EN225?period1=915148800&period2=1792627200&interval=1d",
+    "sha256": "2b54e92a10ab436ce07bc39dffd4c86079e7bc8e0fb8c1cf9e8f2c9a0270e133",
+    "bytes": 654463,
+    "retrieved_utc": "2026-10-21T17:32:48.513248+00:00"
+  },
+  {
+    "file": "yahoo_KR.json",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5EKS11?period1=915148800&period2=1792627200&interval=1d",
+    "sha256": "251ad65b9d041b517e986abee649c8bc78b9fd3df3f1adc67fb70ef8b72a7def",
+    "bytes": 717899,
+    "retrieved_utc": "2026-10-21T17:32:48.457594+00:00"
+  },
+  {
+    "file": "yahoo_SG.json",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5ESTI?period1=915148800&period2=1792627200&interval=1d",
+    "sha256": "b3d142fc438186be8e810e47a61c0eeea24af0797ffd668dbb8b3f0d5dd8f1a6",
+    "bytes": 725402,
+    "retrieved_utc": "2026-10-21T17:32:48.576741+00:00"
+  },
+  {
+    "file": "yahoo_US.json",
+    "url": "https://query1.finance.yahoo.com/v8/finance/chart/%5EGSPC?period1=915148800&period2=1792627200&interval=1d",
+    "sha256": "02e8fe8d815bf5c3cf78122afb8ba608dd8ca26ae4eb870cde8488c5439e5079",
+    "bytes": 753249,
+    "retrieved_utc": "2026-10-21T17:32:54.245778+00:00"
+  },
+  {
+    "file": "bis_reer_AU.csv",
+    "url": "https://stats.bis.org/api/v1/data/WS_EER/M.R.B.AU?startPeriod=1999-01&format=csv",
+    "sha256": "f6cc05515e8572c9769ac6a63b896659885bd4afe61aea71e7cf920b04c6bc0e",
+    "bytes": 25249,
+    "retrieved_utc": "2026-10-21T16:03:37.242158+00:00"
+  },
+  {
+    "file": "bis_reer_BR.csv",
+    "url": "https://stats.bis.org/api/v1/data/WS_EER/M.R.B.BR?startPeriod=1999-01&format=csv",
+    "sha256": "e407e242f45a4221a605537c73a26cb20474d56fd9072d30a7ab9bcae4355278",
+    "bytes": 24290,
+    "retrieved_utc": "2026-10-21T16:03:37.483384+00:00"
+  },
+  {
+    "file": "bis_reer_CA.csv",
+    "url": "https://stats.bis.org/api/v1/data/WS_EER/M.R.B.CA?startPeriod=1999-01&format=csv",
+    "sha256": "acd0c04f041453207a9999cf1ba9fe44a8d4cbc42b936d92ef8b67e5dc76aa68",
+    "bytes": 24244,
+    "retrieved_utc": "2026-10-21T16:03:37.723115+00:00"
+  },
+  {
+    "file": "bis_reer_CH.csv",
+    "url": "https://stats.bis.org/api/v1/data/WS_EER/M.R.B.CH?startPeriod=1999-01&format=csv",
+    "sha256": "6f141c5549797b1783436d11d552c2b3f528d0d1858f688990b173faa844f9e4",
+    "bytes": 25731,
+    "retrieved_utc": "2026-10-21T16:03:37.753590+00:00"
+  },
+  {
+    "file": "bis_reer_CN.csv",
+    "url": "https://stats.bis.org/api/v1/data/WS_EER/M.R.B.CN?startPeriod=1999-01&format=csv",
+    "sha256": "72918c6c4fd99fce077e4380e1a3719ab19a159247b9e5ea0041741747be9b0a",
+    "bytes": 23734,
+    "retrieved_utc": "2026-10-21T16:03:37.069714+00:00"
+  },
+  {
+    "file": "bis_reer_EA.csv",
+    "url": "https://stats.bis.org/api/v1/data/WS_EER/M.R.B.XM?startPeriod=1999-01&format=csv",
+    "sha256": "fb9b63a821f61793ecc58241d73ae3f2527ae55f6b9ed3d52a22f6a18bfb6f27",
+    "bytes": 25222,
+    "retrieved_utc": "2026-10-21T16:03:37.962020+00:00"
+  },
+  {
+    "file": "bis_reer_UK.csv",
+    "url": "https://stats.bis.org/api/v1/data/WS_EER/M.R.B.GB?startPeriod=1999-01&format=csv",
+    "sha256": "001ef5ee0d08b7c1e0b82183900dc0afec7911e460a9053f595265168cb56edb",
+    "bytes": 26940,
+    "retrieved_utc": "2026-10-21T16:03:43.383484+00:00"
+  },
+  {
+    "file": "bis_reer_JP.csv",
+    "url": "https://stats.bis.org/api/v1/data/WS_EER/M.R.B.JP?startPeriod=1999-01&format=csv",
+    "sha256": "34dc0dfff00ccc1ca9a880f1baec0e8b694d0000a9955d804af507f6d9c70b9a",
+    "bytes": 23868,
+    "retrieved_utc": "2026-10-21T16:03:43.410038+00:00"
+  },
+  {
+    "file": "bis_reer_KR.csv",
+    "url": "https://stats.bis.org/api/v1/data/WS_EER/M.R.B.KR?startPeriod=1999-01&format=csv",
+    "sha256": "c075efc67b8fb32156d76addbbfcbd35429daa4bda9788823d82c51192831cae",
+    "bytes": 23837,
+    "retrieved_utc": "2026-10-21T16:03:43.609250+00:00"
+  },
+  {
+    "file": "bis_reer_NO.csv",
+    "url": "https://stats.bis.org/api/v1/data/WS_EER/M.R.B.NO?startPeriod=1999-01&format=csv",
+    "sha256": "95980c275634e63e78441944ec58ad77b51ccf8a39a0edf1ac8685060980cf5e",
+    "bytes": 24289,
+    "retrieved_utc": "2026-10-21T16:03:43.357179+00:00"
+  },
+  {
+    "file": "bis_reer_SG.csv",
+    "url": "https://stats.bis.org/api/v1/data/WS_EER/M.R.B.SG?startPeriod=1999-01&format=csv",
+    "sha256": "b8743b5dbed4e912ec97d0720a290ce0d359a04804d03c7355be87a4c1fb447d",
+    "bytes": 25153,
+    "retrieved_utc": "2026-10-21T16:03:43.425462+00:00"
+  },
+  {
+    "file": "bis_reer_TR.csv",
+    "url": "https://stats.bis.org/api/v1/data/WS_EER/M.R.B.TR?startPeriod=1999-01&format=csv",
+    "sha256": "cd05b4d0b2d66b1eedb47c099cc882dba807491d54c29f983b707db6e8d33c4a",
+    "bytes": 24272,
+    "retrieved_utc": "2026-10-21T16:03:43.367363+00:00"
+  },
+  {
+    "file": "bis_reer_US.csv",
+    "url": "https://stats.bis.org/api/v1/data/WS_EER/M.R.B.US?startPeriod=1999-01&format=csv",
+    "sha256": "d48b81a8c48ce179a634923130ec3f3a76417b424802b871f13f37933c5b7b0c",
+    "bytes": 26428,
+    "retrieved_utc": "2026-10-21T16:03:49.690060+00:00"
+  },
+  {
+    "file": "bis_reer_ZA.csv",
+    "url": "https://stats.bis.org/api/v1/data/WS_EER/M.R.B.ZA?startPeriod=1999-01&format=csv",
+    "sha256": "5207405032724b2402c9cc7bd7d60e96f4453874ff904a22f964ef93cb55925b",
+    "bytes": 26283,
+    "retrieved_utc": "2026-10-21T16:03:50.571270+00:00"
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "run_id": 39647769567,
+  "commit": "ac8fcda87a3c34bd557ae401590cff7f622109a7",
+  "url": "https://github.com/243e106e-coder/tvp-gvar-replication-private/actions/runs/39647769567",
+  "preflight_artifact_id": 12367822930,
+  "effective_sample": "2000Q2-2025Q3",
+  "observations": 102,
+  "specification": "single_source_rate_proxy_candidate; exploratory"
+}

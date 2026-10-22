@@ -1,0 +1,15 @@
+{
+  "raw_macro.csv": "9b90e8b24fc60ee0f1b92c19f774508d5137b81624a65ba93354ba7fd8dfb0cc",
+  "risk_quarterly.csv": "b5c031c297b6b6e5a84d0da212e1002507095f16d6a5aed8b589c7eaef7f933e",
+  "verified_macro_inventory.csv": "63869202598b76bb10e821eb08d6212e03b1fcbdc8c1600b66ff5b9d935c1697",
+  "source_receipts.json": "6d800d2dff5dd3f27a567ec8582da7454c005b96e1c1bf3c8db48ad850693b36",
+  "rate_proxy_changes.csv": "75e9c7c0bec221fff254b5147e40db3ccb5e19015d17bc9be4b12bb01736e9d8",
+  "raw_missing_observations.csv": "1fb7c8a3bba2c62005fea5b7cf6ea2aaecb8c4ec39259b271076ade41e8d2f9d",
+  "model_input.csv": "d0ccd4314573625e675eb6a0032a638e024593e4f0dad15bc54ff1a5ea253e72",
+  "sample_audit.json": "8b61b0bdb9676ff6c55f329d796a330c4b3e994e119f4c67e18fd8937e554968",
+  "peak_dates.csv": "d230aafa333bf24d4725a72cb9e80eecbc385e85bae3986a21026c66c4f50455",
+  "peak_rules.json": "8cc083afba447491b61901ce618ac4d6a14bf50ad8126e8a3f28ce82fd3722ff",
+  "source_observations.csv.gz": "3aa8dd6399f400e7717adb6a3ce1b2b9098ee7747ed12741903c2b000e1e58d3",
+  "READINESS.json": "304e5a0dd9908664c16e6dd49f8f2e96d48fe091636a97c280fbd2426cff7252",
+  "old_new_comparison.csv": "2086eb04a2d46bae096dd1715a3a49ad170654be743478b47ddf6424fcd81417"
+}

@@ -1,0 +1,15 @@
+country,source_id,definition,tenor,source_aggregation,input_form,three_month_reference_group,proxy_changed_from_inherited_spec,unresolved_definition,issue,first,last
+AU,OECD_FINMARK_AUS_IR3TIB,3-month money-market benchmark,3 months,monthly published rate,first difference in annual-percentage-rate points; never log,True,False,False,,1999Q1,2026Q2
+BR,OECD_FINMARK_BRA_IRSTCI,call-money / interbank rate,overnight,monthly published rate,first difference in annual-percentage-rate points; never log,False,False,False,,1999Q1,2026Q3
+CA,OECD_FINMARK_CAN_IR3TIB,3-month money-market benchmark,3 months,monthly published rate,first difference in annual-percentage-rate points; never log,True,False,False,,1999Q1,2026Q3
+CH,OECD_FINMARK_CHE_IR3TIB,3-month money-market benchmark,3 months,monthly published rate,first difference in annual-percentage-rate points; never log,True,False,False,,1999Q3,2026Q3
+CN,AtlantaFed_202609_R1dRepo,publisher quarterly repo rate,1 day,publisher quarterly series,first difference in annual-percentage-rate points; never log,False,True,True,Different maturity and source construction from the 3-month group.,1999Q1,2026Q2
+EA,OECD_FINMARK_EA20_IR3TIB,3-month money-market benchmark,3 months,monthly published rate,first difference in annual-percentage-rate points; never log,True,False,False,,1999Q1,2026Q3
+UK,OECD_FINMARK_GBR_IR3TIB,3-month money-market benchmark,3 months,monthly published rate,first difference in annual-percentage-rate points; never log,True,False,False,,1999Q1,2025Q4
+JP,OECD_FINMARK_JPN_IRSTCI,call-money / interbank rate,overnight,monthly published rate,first difference in annual-percentage-rate points; never log,False,False,False,,1999Q1,2026Q3
+KR,OECD_FINMARK_KOR_IR3TIB,3-month money-market benchmark,3 months,monthly published rate,first difference in annual-percentage-rate points; never log,True,False,False,,1999Q1,2026Q3
+NO,OECD_FINMARK_NOR_IR3TIB,3-month money-market benchmark,3 months,monthly published rate,first difference in annual-percentage-rate points; never log,True,False,False,,1999Q1,2026Q3
+SG,SingStat_d_5fe5a4bb4a1ecc4d8a56a095832e2b24,government Treasury-bill yield,1 year,quarterly mean of three monthly end-period yields,first difference in annual-percentage-rate points; never log,False,True,True,"Government yield, 1-year maturity and monthly endpoints. Not SORA or SIBOR.",1999Q1,2026Q2
+TR,IMF_MFS_IR_TUR_DISR_RT_PT_A_PT_M,central-bank discount rate,administered; not a traded maturity,monthly published rate,first difference in annual-percentage-rate points; never log,False,True,True,Administered discount rate. Not the overnight market/funding rate; high-priority unresolved definition.,1999Q1,2026Q2
+US,OECD_FINMARK_USA_IRSTCI,call-money / interbank rate,overnight,monthly published rate,first difference in annual-percentage-rate points; never log,False,True,True,Different maturity from the 3-month group; this is NOT the incomplete US 3-month series.,1999Q1,2026Q3
+ZA,OECD_FINMARK_ZAF_IR3TIB,3-month money-market benchmark,3 months,monthly published rate,first difference in annual-percentage-rate points; never log,True,False,False,,1999Q1,2026Q3

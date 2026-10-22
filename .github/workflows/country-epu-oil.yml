@@ -1,0 +1,185 @@
+name: Country EPU + Global WTI - Frozen Candidate Estimation
+on:
+  push:
+    paths:
+      - '8.12/country_epu_oil/**'
+      - '.github/workflows/country-epu-oil.yml'
+  workflow_dispatch:
+    inputs:
+      estimate:
+        description: Estimate only after verified raw_macro.csv and compatible risk presample exist
+        type: boolean
+        default: false
+      saves:
+        default: '500'
+      burns:
+        default: '500'
+      gdp:
+        type: choice
+        options: [growth, log_level]
+        default: growth
+permissions:
+  contents: read
+env:
+  TVPGVAR_P: '1'
+  TVPGVAR_SAVES: ${{ inputs.saves || '500' }}
+  TVPGVAR_BURNS: ${{ inputs.burns || '500' }}
+  TVPGVAR_THIN: '0.5'
+  TVPGVAR_HORIZON: '12'
+  TVPGVAR_SHOCK_PCT: '10'
+  TVPGVAR_CPU: '2'
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas numpy openpyxl xlrd
+      - name: Test dates, units, gaps and independent peak selection
+        run: |
+          python3 8.12/country_epu_oil/test_pipeline.py
+          python3 8.12/country_epu_oil/test_source_aggregation.py
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.4.2'
+      - name: Test both country mappings and scalar oil transmission
+        run: |
+          Rscript --vanilla 8.12/country_epu_oil/test_architecture.R
+          Rscript -e 'for(f in list.files("8.12/country_epu_oil",pattern="[.]R$",full.names=TRUE)) parse(f)'
+          Rscript --vanilla 8.12/country_epu_oil/patch_estimator.R
+          Rscript -e 'out <- "RESULT_DIRECTORY_SENTINEL"; source("8.12/country_epu_oil/patch_estimator.R"); stopifnot(out == "RESULT_DIRECTORY_SENTINEL")'
+          Rscript -e 'parse("R/BVAR_country_oil.r"); stopifnot(identical(dim(diag(as.numeric(exp(-2)),nrow=1,ncol=1)),c(1L,1L)))'
+      - name: Verify the 70-series frozen candidate and disclose rate-proxy changes
+        run: |
+          python3 8.12/country_epu_oil/freeze_candidate.py --verify
+          mkdir -p data/country_epu_oil
+          cp 8.12/country_epu_oil/data_20261022/* data/country_epu_oil/
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: country-epu-oil-DATA-AUDIT-${{ github.run_id }}
+          path: data/country_epu_oil/
+          retention-days: 90
+  preflight:
+    needs: audit
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.estimate) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-country-epu]')) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: country-epu-oil-DATA-AUDIT-${{ github.run_id }}
+          path: data/country_epu_oil/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas numpy openpyxl
+      - name: Require raw data; transform BEFORE trimming presample
+        env:
+          GDP_MODE: ${{ inputs.gdp || 'growth' }}
+        run: |
+          test -f data/country_epu_oil/raw_macro.csv || { echo 'BLOCKED: verified 1999-onward raw_macro.csv is absent; see DATA-AUDIT'; exit 1; }
+          python3 8.12/country_epu_oil/build_input.py --p "$TVPGVAR_P" --gdp "$GDP_MODE"
+          python3 8.12/country_epu_oil/select_peaks.py --p "$TVPGVAR_P"
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.4.2'
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::tseries
+      - name: Unit-root screens and actual model design rank checks
+        env:
+          PREFLIGHT_ONLY: 'true'
+        run: |
+          Rscript 8.12/country_epu_oil/diagnostics.R
+          for ec in CN US; do
+            EPU_COUNTRY="$ec" Rscript --vanilla 8.12/country_epu_oil/run.R
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: country-epu-oil-PREFLIGHT-${{ github.run_id }}
+          path: |
+            data/country_epu_oil/
+            results/country_epu_oil/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: country-epu-oil-input
+          path: data/country_epu_oil/
+  estimate:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        epu: [CN, US]
+    env:
+      EPU_COUNTRY: ${{ matrix.epu }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: country-epu-oil-input
+          path: data/country_epu_oil/
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.4.2'
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::remotes
+            any::snowfall
+            any::zoo
+            any::Matrix
+            any::mvtnorm
+            any::coda
+            any::bayesm
+            any::psych
+            any::MCMCpack
+            any::mnormt
+            any::rARPACK
+            any::ggplot2
+            any::GIGrvg
+            any::dlm
+            any::Rcpp
+            any::RcppArmadillo
+      - name: Install original solver
+        run: |
+          Rscript -e 'remotes::install_version("stochvol",version="3.2.9",repos="https://cloud.r-project.org",upgrade="never")'
+          sed -i 's|inv_f=solve(f.t(),Vtt.t(), "std").t();|inv_f=solve(arma::mat(f.t()),arma::mat(Vtt.t()), "std").t();|' threshtvp_source/src/threshold_functions.cpp
+          R CMD INSTALL threshtvp_source
+      - name: Smoke-test actual scalar Global estimator before expensive national estimation
+        run: Rscript --vanilla 8.12/country_epu_oil/test_scalar_estimator.R
+      - name: Estimate country EPU plus oil; preserve all IRF draws
+        run: Rscript --vanilla 8.12/country_epu_oil/run.R
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: country-epu-oil-${{ matrix.epu }}-${{ github.run_id }}
+          path: results/country_epu_oil/
+          retention-days: 90
+  plots:
+    needs: estimate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: country-epu-oil-[CU][NS]-${{ github.run_id }}
+          path: results/country_epu_oil/
+          merge-multiple: true
+      - uses: r-lib/actions/setup-r@v2
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: any::ggplot2
+      - run: Rscript 8.12/country_epu_oil/plot.R
+      - uses: actions/upload-artifact@v4
+        with:
+          name: country-epu-oil-PLOTS-${{ github.run_id }}
+          path: |
+            results/country_epu_oil/**/*.pdf
+            results/country_epu_oil/**/*.csv
