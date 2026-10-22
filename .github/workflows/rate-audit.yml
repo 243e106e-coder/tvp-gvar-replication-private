@@ -1,0 +1,32 @@
+name: Interest-rate definitions, transformations and level responses
+on:
+  push:
+    paths:
+      - '8.12/rate_audit_20261022/**'
+      - '.github/workflows/rate-audit.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  rate-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install numpy pandas scipy statsmodels matplotlib
+      - name: Preserve true missing observations and reject misleading rate responses
+        run: python3 8.12/rate_audit_20261022/test_rates.py
+      - name: Compare level and difference on the frozen common sample
+        run: python3 8.12/rate_audit_20261022/audit_rates.py
+      - name: Plot original draw-wise cumulative level and difference responses
+        run: python3 8.12/rate_audit_20261022/plot_rate_irfs.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rate-definition-and-response-audit-${{ github.run_id }}
+          path: |
+            8.12/rate_audit_20261022/results/
+            8.12/rate_audit_20261022/plots/
+          retention-days: 90

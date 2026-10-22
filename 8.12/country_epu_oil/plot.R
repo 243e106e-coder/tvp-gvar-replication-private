@@ -14,6 +14,12 @@ for(ec in c("CN","US")) {
       z<-subset(d,shock==sh&date==date_i&filter==filter_i&response_kind==kind&macro==v)
       if(!nrow(z)) next
       pp<-peaks[peaks$Quarter==date_i&peaks$shock==sh,]
+      # r is estimated in first differences. Only the draw-wise cumulative
+      # summary represents the response of the interest-rate LEVEL.
+      ylabel <- if(v == "r") {
+        if(kind == "rate_level_cumulative") "Interest-rate LEVEL response (percentage points)"
+        else "Interest-rate CHANGE response (percentage points)"
+      } else "Response in transformed variable units"
       print(ggplot(z,aes(horizon,median))+
         geom_hline(yintercept=0,color="grey50",linewidth=.3)+
         geom_ribbon(aes(ymin=low90,ymax=high90),fill="#66B2FF",alpha=.25)+
@@ -22,7 +28,7 @@ for(ec in c("CN","US")) {
         theme_bw()+labs(title=paste(ec,"EPU + WTI |",sh,"shock |",date_i,"|",v),
           subtitle=paste("Exploratory rate-proxy candidate | Peak series:",paste(pp$series,collapse=","),
              "|",filter_i,"|",kind,"| dark 68%, light 90% credible intervals"),
-          x="Quarters after +10% impact",y="Response in transformed variable units"))
+          x="Quarters after +10% impact",y=ylabel))
     }
   dev.off()
   # Country counts and horizon counts are separate quantities.

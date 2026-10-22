@@ -1,0 +1,22 @@
+[
+  {
+    "file": "fred_CN_3m.csv",
+    "url": "https://fred.stlouisfed.org/data/IR3TIB01CNM156N",
+    "sha256": "5699188f7e1c8dfdf16f541fa18259203b4cf8caf2cba1d3c81781b7a31d6eb3"
+  },
+  {
+    "file": "fred_US_3m.csv",
+    "url": "https://fred.stlouisfed.org/data/IR3TIB01USM156N",
+    "sha256": "6ec2d8876fbb11ef2cff2d526a3f63ae215157db3161d798364b05d0edd5ffa4"
+  },
+  {
+    "file": "fred_TR_overnight.csv",
+    "url": "https://fred.stlouisfed.org/data/IRSTCI01TRM156N",
+    "sha256": "8390295ddd4276bca2a0e9a3275f239908d14b6e378e4b96e5435e122c0f86c4"
+  },
+  {
+    "file": "cbrt_overnight.csv",
+    "url": "https://www.tcmb.gov.tr/wps/wcm/connect/EN/TCMB%2BEN/Main%2BMenu/Core%2BFunctions/Monetary%2BPolicy/Central%2BBank%2BInterest%2BRates/CBRT%2BINTEREST%2BRATES",
+    "sha256": "ec2bd45182555c9bd943b66b9f9ea34cade762b01289b0aea93553517e8b1770"
+  }
+]
