@@ -1,0 +1,113 @@
+series,publisher_label,role,estimated_this_batch,first_month,last_month,observations,zero_months
+GPR,Recent GPR (Index: 1985:2019=100),overall_or_threats_acts,True,1985-01-01,2026-09-01,501,0
+GPRT,Recent GPR Threats (Index: 1985:2019=100),overall_or_threats_acts,True,1985-01-01,2026-09-01,501,0
+GPRA,Recent GPR Acts (Index: 1985:2019=100),overall_or_threats_acts,True,1985-01-01,2026-09-01,501,0
+GPRH,Historical GPR (Index: 1900:2019=100),overall_or_threats_acts,True,1900-01-01,2026-09-01,1521,0
+GPRHT,Historical GPR Threats (Index: 1900:2019=100),overall_or_threats_acts,True,1900-01-01,2026-09-01,1521,0
+GPRHA,Historical GPR Acts (Index: 1900:2019=100),overall_or_threats_acts,True,1900-01-01,2026-09-01,1521,0
+SHARE_GPR,Percent of Recent GPR Articles,same_index_alternative_scale,False,1985-01-01,2026-09-01,501,0
+N10,"Number of articles (10 recent newspapers, 1985-)",article_count_not_risk,False,1985-01-01,2026-09-01,501,0
+SHARE_GPRH,Percent of Historical GPR Articles,same_index_alternative_scale,False,1900-01-01,2026-09-01,1521,0
+N3H,"Number of articles (3 historical newspapers, 1900-)",article_count_not_risk,False,1900-01-01,2026-09-01,1521,0
+GPRH_NOEW,Historical GPR Index including Excluded Words (1900-2019=100),search_definition_robustness_variant,False,1900-01-01,2026-09-01,1521,0
+GPR_NOEW,Recent GPR Index including Excluded Words (1985-2019=100),search_definition_robustness_variant,False,1985-01-01,2026-09-01,501,0
+GPRH_AND,Historical GPR Index (broader search criteria) replacing N/2 with AND (1900-2019,search_definition_robustness_variant,False,1900-01-01,2026-09-01,1521,0
+GPR_AND,Recent GPR Index (broader search criteria) replacing N/2 with AND (1985-2019=100,search_definition_robustness_variant,False,1985-01-01,2026-09-01,501,0
+GPRH_BASIC,Historical Basic GPR Index (narrow search criteria) (1900-2019=100),search_definition_robustness_variant,False,1900-01-01,2026-09-01,1521,0
+GPR_BASIC,Recent Basic GPR Index (narrow search criteria) (1985-2019=100),search_definition_robustness_variant,False,1985-01-01,2026-09-01,501,0
+SHAREH_CAT_1,Share of articles Cat.1,event_category,True,1900-01-01,2026-09-01,1521,0
+SHAREH_CAT_2,Share of articles Cat.2,event_category,True,1900-01-01,2026-09-01,1521,41
+SHAREH_CAT_3,Share of articles Cat.3,event_category,True,1900-01-01,2026-09-01,1521,0
+SHAREH_CAT_4,Share of articles Cat.4,event_category,True,1900-01-01,2026-09-01,1521,533
+SHAREH_CAT_5,Share of articles Cat.5,event_category,True,1900-01-01,2026-09-01,1521,355
+SHAREH_CAT_6,Share of articles Cat.6,event_category,True,1900-01-01,2026-09-01,1521,0
+SHAREH_CAT_7,Share of articles Cat.7,event_category,True,1900-01-01,2026-09-01,1521,0
+SHAREH_CAT_8,Share of articles Cat.8,event_category,True,1900-01-01,2026-09-01,1521,229
+GPRC_ARG,Country GPR: Percent of articles (Argentina),country_specific,False,1985-01-01,2026-09-01,501,7
+GPRC_AUS,Country GPR: Percent of articles (Australia),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_BEL,Country GPR: Percent of articles (Belgium),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_BRA,Country GPR: Percent of articles (Brazil),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_CAN,Country GPR: Percent of articles (Canada),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_CHE,Country GPR: Percent of articles (Switzerland),country_specific,False,1985-01-01,2026-09-01,501,1
+GPRC_CHL,Country GPR: Percent of articles (Chile),country_specific,False,1985-01-01,2026-09-01,501,45
+GPRC_CHN,Country GPR: Percent of articles (China),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_COL,Country GPR: Percent of articles (Colombia),country_specific,False,1985-01-01,2026-09-01,501,4
+GPRC_DEU,Country GPR: Percent of articles (Germany),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_DNK,Country GPR: Percent of articles (Denmark),country_specific,False,1985-01-01,2026-09-01,501,7
+GPRC_EGY,Country GPR: Percent of articles (Egypt),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_ESP,Country GPR: Percent of articles (Spain),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_FIN,Country GPR: Percent of articles (Finland),country_specific,False,1985-01-01,2026-09-01,501,9
+GPRC_FRA,Country GPR: Percent of articles (France),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_GBR,Country GPR: Percent of articles (United Kingdom),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_HKG,Country GPR: Percent of articles (Hong Kong),country_specific,False,1985-01-01,2026-09-01,501,11
+GPRC_HUN,Country GPR: Percent of articles (Hungary),country_specific,False,1985-01-01,2026-09-01,501,11
+GPRC_IDN,Country GPR: Percent of articles (Indonesia),country_specific,False,1985-01-01,2026-09-01,501,15
+GPRC_IND,Country GPR: Percent of articles (India),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_ISR,Country GPR: Percent of articles (Israel),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_ITA,Country GPR: Percent of articles (Italy),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_JPN,Country GPR: Percent of articles (Japan),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_KOR,Country GPR: Percent of articles (South Korea),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_MEX,Country GPR: Percent of articles (Mexico),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_MYS,Country GPR: Percent of articles (Malaysia),country_specific,False,1985-01-01,2026-09-01,501,20
+GPRC_NLD,Country GPR: Percent of articles (Netherlands),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_NOR,Country GPR: Percent of articles (Norway),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_PER,Country GPR: Percent of articles (Peru),country_specific,False,1985-01-01,2026-09-01,501,20
+GPRC_PHL,Country GPR: Percent of articles (Philippines),country_specific,False,1985-01-01,2026-09-01,501,4
+GPRC_POL,Country GPR: Percent of articles (Poland),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_PRT,Country GPR: Percent of articles (Portugal),country_specific,False,1985-01-01,2026-09-01,501,21
+GPRC_RUS,Country GPR: Percent of articles (Russia),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_SAU,Country GPR: Percent of articles (Saudi Arabia),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_SWE,Country GPR: Percent of articles (Sweden),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_THA,Country GPR: Percent of articles (Thailand),country_specific,False,1985-01-01,2026-09-01,501,9
+GPRC_TUN,Country GPR: Percent of articles (Tunisia),country_specific,False,1985-01-01,2026-09-01,501,55
+GPRC_TUR,Country GPR: Percent of articles (Turkey),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_TWN,Country GPR: Percent of articles (Taiwan),country_specific,False,1985-01-01,2026-09-01,501,9
+GPRC_UKR,Country GPR: Percent of articles (Ukraine),country_specific,False,1985-01-01,2026-09-01,501,14
+GPRC_USA,Country GPR: Percent of articles (United States),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRC_VEN,Country GPR: Percent of articles (Venezuela),country_specific,False,1985-01-01,2026-09-01,501,13
+GPRC_VNM,Country GPR: Percent of articles (Vietnam),country_specific,False,1985-01-01,2026-09-01,501,4
+GPRC_ZAF,Country GPR: Percent of articles (South Africa),country_specific,False,1985-01-01,2026-09-01,501,0
+GPRHC_ARG,Country GPR Historical: Percent of articles (Argentina),country_specific,False,1900-01-01,2026-09-01,1521,183
+GPRHC_AUS,Country GPR Historical: Percent of articles (Australia),country_specific,False,1900-01-01,2026-09-01,1521,90
+GPRHC_BEL,Country GPR Historical: Percent of articles (Belgium),country_specific,False,1900-01-01,2026-09-01,1521,48
+GPRHC_BRA,Country GPR Historical: Percent of articles (Brazil),country_specific,False,1900-01-01,2026-09-01,1521,125
+GPRHC_CAN,Country GPR Historical: Percent of articles (Canada),country_specific,False,1900-01-01,2026-09-01,1521,9
+GPRHC_CHE,Country GPR Historical: Percent of articles (Switzerland),country_specific,False,1900-01-01,2026-09-01,1521,110
+GPRHC_CHL,Country GPR Historical: Percent of articles (Chile),country_specific,False,1900-01-01,2026-09-01,1521,306
+GPRHC_CHN,Country GPR Historical: Percent of articles (China),country_specific,False,1900-01-01,2026-09-01,1521,1
+GPRHC_COL,Country GPR Historical: Percent of articles (Colombia),country_specific,False,1900-01-01,2026-09-01,1521,288
+GPRHC_DEU,Country GPR Historical: Percent of articles (Germany),country_specific,False,1900-01-01,2026-09-01,1521,0
+GPRHC_DNK,Country GPR Historical: Percent of articles (Denmark),country_specific,False,1900-01-01,2026-09-01,1521,233
+GPRHC_EGY,Country GPR Historical: Percent of articles (Egypt),country_specific,False,1900-01-01,2026-09-01,1521,63
+GPRHC_ESP,Country GPR Historical: Percent of articles (Spain),country_specific,False,1900-01-01,2026-09-01,1521,6
+GPRHC_FIN,Country GPR Historical: Percent of articles (Finland),country_specific,False,1900-01-01,2026-09-01,1521,235
+GPRHC_FRA,Country GPR Historical: Percent of articles (France),country_specific,False,1900-01-01,2026-09-01,1521,0
+GPRHC_GBR,Country GPR Historical: Percent of articles (United Kingdom),country_specific,False,1900-01-01,2026-09-01,1521,0
+GPRHC_HKG,Country GPR Historical: Percent of articles (Hong Kong),country_specific,False,1900-01-01,2026-09-01,1521,521
+GPRHC_HUN,Country GPR Historical: Percent of articles (Hungary),country_specific,False,1900-01-01,2026-09-01,1521,184
+GPRHC_IDN,Country GPR Historical: Percent of articles (Indonesia),country_specific,False,1900-01-01,2026-09-01,1521,496
+GPRHC_IND,Country GPR Historical: Percent of articles (India),country_specific,False,1900-01-01,2026-09-01,1521,1
+GPRHC_ISR,Country GPR Historical: Percent of articles (Israel),country_specific,False,1900-01-01,2026-09-01,1521,250
+GPRHC_ITA,Country GPR Historical: Percent of articles (Italy),country_specific,False,1900-01-01,2026-09-01,1521,0
+GPRHC_JPN,Country GPR Historical: Percent of articles (Japan),country_specific,False,1900-01-01,2026-09-01,1521,2
+GPRHC_KOR,Country GPR Historical: Percent of articles (South Korea),country_specific,False,1900-01-01,2026-09-01,1521,219
+GPRHC_MEX,Country GPR Historical: Percent of articles (Mexico),country_specific,False,1900-01-01,2026-09-01,1521,10
+GPRHC_MYS,Country GPR Historical: Percent of articles (Malaysia),country_specific,False,1900-01-01,2026-09-01,1521,607
+GPRHC_NLD,Country GPR Historical: Percent of articles (Netherlands),country_specific,False,1900-01-01,2026-09-01,1521,41
+GPRHC_NOR,Country GPR Historical: Percent of articles (Norway),country_specific,False,1900-01-01,2026-09-01,1521,200
+GPRHC_PER,Country GPR Historical: Percent of articles (Peru),country_specific,False,1900-01-01,2026-09-01,1521,239
+GPRHC_PHL,Country GPR Historical: Percent of articles (Philippines),country_specific,False,1900-01-01,2026-09-01,1521,66
+GPRHC_POL,Country GPR Historical: Percent of articles (Poland),country_specific,False,1900-01-01,2026-09-01,1521,83
+GPRHC_PRT,Country GPR Historical: Percent of articles (Portugal),country_specific,False,1900-01-01,2026-09-01,1521,255
+GPRHC_RUS,Country GPR Historical: Percent of articles (Russia),country_specific,False,1900-01-01,2026-09-01,1521,0
+GPRHC_SAU,Country GPR Historical: Percent of articles (Saudi Arabia),country_specific,False,1900-01-01,2026-09-01,1521,539
+GPRHC_SWE,Country GPR Historical: Percent of articles (Sweden),country_specific,False,1900-01-01,2026-09-01,1521,122
+GPRHC_THA,Country GPR Historical: Percent of articles (Thailand),country_specific,False,1900-01-01,2026-09-01,1521,74
+GPRHC_TUN,Country GPR Historical: Percent of articles (Tunisia),country_specific,False,1900-01-01,2026-09-01,1521,581
+GPRHC_TUR,Country GPR Historical: Percent of articles (Turkey),country_specific,False,1900-01-01,2026-09-01,1521,15
+GPRHC_TWN,Country GPR Historical: Percent of articles (Taiwan),country_specific,False,1900-01-01,2026-09-01,1521,443
+GPRHC_UKR,Country GPR Historical: Percent of articles (Ukraine),country_specific,False,1900-01-01,2026-09-01,1521,507
+GPRHC_USA,Country GPR Historical: Percent of articles (United States),country_specific,False,1900-01-01,2026-09-01,1521,0
+GPRHC_VEN,Country GPR Historical: Percent of articles (Venezuela),country_specific,False,1900-01-01,2026-09-01,1521,328
+GPRHC_VNM,Country GPR Historical: Percent of articles (Vietnam),country_specific,False,1900-01-01,2026-09-01,1521,358
+GPRHC_ZAF,Country GPR Historical: Percent of articles (South Africa),country_specific,False,1900-01-01,2026-09-01,1521,155

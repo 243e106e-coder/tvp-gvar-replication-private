@@ -1,0 +1,22 @@
+{
+  "source_url": "https://www.matteoiacoviello.com/gpr_files/data_gpr_export.xls",
+  "source_page": "https://www.matteoiacoviello.com/gpr.htm",
+  "download_date": "2026-10-26",
+  "source_page_last_monthly_update": "2026-10-01",
+  "latest_downloaded_month": "2026-09-01",
+  "latest_risk_quarter": "2026Q3",
+  "source_sha256": "97af839913606a4bbf4315130b3b1d08d25e37398110c3d2207dc1179f9ff0eb",
+  "macro_snapshot": "country_epu_oil/data_20261022",
+  "macro_baseline_run": 39647769567,
+  "macro_input_sha256": "d0ccd4314573625e675eb6a0032a638e024593e4f0dad15bc54ff1a5ea253e72",
+  "categories": 14,
+  "national_endogenous_variables": 70,
+  "external_path_variables": 1,
+  "estimation_quarters": 102,
+  "common_end": "2025Q3",
+  "rate_proxy_limitations_retained": true,
+  "trade_weight_lineage_unresolved": true,
+  "no_imputation": true,
+  "scope": "6 aggregate/threats/acts + 8 historical event categories; country indices and search variants inventoried separately, not silently called event categories",
+  "exogeneity": "GPR is external in all 14 national VARX blocks; auxiliary TVP AR(1) receives no macro or foreign feedback; not an external-instrument causal identification"
+}

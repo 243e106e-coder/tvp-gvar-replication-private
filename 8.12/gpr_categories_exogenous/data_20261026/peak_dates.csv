@@ -1,0 +1,124 @@
+series,category_name,Quarter,value,prominence,height_threshold,prominence_threshold,context_status
+GPR,Recent overall GPR,2001Q4,351.8051198323568,210.2230555216471,123.3582960764567,21.47860997687406,statistical peak; historical event attribution not yet verified
+GPR,Recent overall GPR,2003Q1,268.2522379557292,126.6701736450196,123.3582960764567,21.47860997687406,statistical peak; historical event attribution not yet verified
+GPR,Recent overall GPR,2004Q3,141.752431233724,23.12938181559245,123.3582960764567,21.47860997687406,statistical peak; historical event attribution not yet verified
+GPR,Recent overall GPR,2005Q3,128.645746866862,39.85827382405598,123.3582960764567,21.47860997687406,statistical peak; historical event attribution not yet verified
+GPR,Recent overall GPR,2006Q3,131.9800669352213,42.91830698649088,123.3582960764567,21.47860997687406,statistical peak; historical event attribution not yet verified
+GPR,Recent overall GPR,2014Q3,135.5853983561198,50.72963968912759,123.3582960764567,21.47860997687406,statistical peak; historical event attribution not yet verified
+GPR,Recent overall GPR,2015Q4,130.2948811848958,42.38754781087241,123.3582960764567,21.47860997687406,statistical peak; historical event attribution not yet verified
+GPR,Recent overall GPR,2022Q1,224.5963083902995,114.3825098673503,123.3582960764567,21.47860997687406,statistical peak; historical event attribution not yet verified
+GPR,Recent overall GPR,2023Q4,165.6208699544271,44.37796274820964,123.3582960764567,21.47860997687406,statistical peak; historical event attribution not yet verified
+GPR,Recent overall GPR,2025Q2,176.8448384602865,44.39619445800781,123.3582960764567,21.47860997687406,statistical peak; historical event attribution not yet verified
+GPRT,Recent geopolitical threats,2001Q4,179.1135508219401,78.50691986083983,123.5362154642741,20.39394024001471,statistical peak; historical event attribution not yet verified
+GPRT,Recent geopolitical threats,2003Q1,301.6628061930339,201.0561752319336,123.5362154642741,20.39394024001471,statistical peak; historical event attribution not yet verified
+GPRT,Recent geopolitical threats,2004Q3,126.3063634236654,28.37171173095703,123.5362154642741,20.39394024001471,statistical peak; historical event attribution not yet verified
+GPRT,Recent geopolitical threats,2006Q3,128.7444051106771,49.2079569498698,123.5362154642741,20.39394024001471,statistical peak; historical event attribution not yet verified
+GPRT,Recent geopolitical threats,2014Q3,154.9013264973958,69.54245503743491,123.5362154642741,20.39394024001471,statistical peak; historical event attribution not yet verified
+GPRT,Recent geopolitical threats,2018Q2,151.8789418538412,43.06504058837892,123.5362154642741,20.39394024001471,statistical peak; historical event attribution not yet verified
+GPRT,Recent geopolitical threats,2020Q1,125.0322952270508,29.6959228515625,123.5362154642741,20.39394024001471,statistical peak; historical event attribution not yet verified
+GPRT,Recent geopolitical threats,2022Q1,307.9356689453125,179.5498835245768,123.5362154642741,20.39394024001471,statistical peak; historical event attribution not yet verified
+GPRT,Recent geopolitical threats,2023Q4,161.5709330240885,39.21413930257161,123.5362154642741,20.39394024001471,statistical peak; historical event attribution not yet verified
+GPRT,Recent geopolitical threats,2025Q2,217.7279612223307,65.67121378580728,123.5362154642741,20.39394024001471,statistical peak; historical event attribution not yet verified
+GPRA,Recent geopolitical acts,2001Q4,581.9311930338541,410.3967336018879,131.2738405863444,34.21288966838596,statistical peak; historical event attribution not yet verified
+GPRA,Recent geopolitical acts,2003Q1,273.0614573160807,101.5269978841146,131.2738405863444,34.21288966838596,statistical peak; historical event attribution not yet verified
+GPRA,Recent geopolitical acts,2004Q2,181.1034138997396,34.75926717122397,131.2738405863444,34.21288966838596,statistical peak; historical event attribution not yet verified
+GPRA,Recent geopolitical acts,2005Q3,170.3760935465495,69.98231760660806,131.2738405863444,34.21288966838596,statistical peak; historical event attribution not yet verified
+GPRA,Recent geopolitical acts,2006Q3,138.6816329956055,41.75242869059245,131.2738405863444,34.21288966838596,statistical peak; historical event attribution not yet verified
+GPRA,Recent geopolitical acts,2015Q4,175.7130686442057,79.83972930908202,131.2738405863444,34.21288966838596,statistical peak; historical event attribution not yet verified
+GPRA,Recent geopolitical acts,2022Q2,146.4566167195638,52.69436391194662,131.2738405863444,34.21288966838596,statistical peak; historical event attribution not yet verified
+GPRA,Recent geopolitical acts,2023Q4,195.1073811848958,63.15925343831381,131.2738405863444,34.21288966838596,statistical peak; historical event attribution not yet verified
+GPRH,Historical overall GPR,2001Q4,232.7119140625,135.9367904663086,99.7552064259847,13.85169021244001,statistical peak; historical event attribution not yet verified
+GPRH,Historical overall GPR,2003Q1,174.0320180257162,74.27141316731772,99.7552064259847,13.85169021244001,statistical peak; historical event attribution not yet verified
+GPRH,Historical overall GPR,2004Q3,125.1201095581055,25.35950469970703,99.7552064259847,13.85169021244001,statistical peak; historical event attribution not yet verified
+GPRH,Historical overall GPR,2006Q3,104.2446899414062,21.71823120117188,99.7552064259847,13.85169021244001,statistical peak; historical event attribution not yet verified
+GPRH,Historical overall GPR,2014Q3,101.5873235066732,32.88063812255859,99.7552064259847,13.85169021244001,statistical peak; historical event attribution not yet verified
+GPRH,Historical overall GPR,2015Q4,113.863883972168,35.20744323730469,99.7552064259847,13.85169021244001,statistical peak; historical event attribution not yet verified
+GPRH,Historical overall GPR,2022Q1,124.3213780721029,32.02206166585286,99.7552064259847,13.85169021244001,statistical peak; historical event attribution not yet verified
+GPRH,Historical overall GPR,2023Q4,134.1735127766927,43.22481791178386,99.7552064259847,13.85169021244001,statistical peak; historical event attribution not yet verified
+GPRH,Historical overall GPR,2025Q2,132.1994145711263,18.90834808349611,99.7552064259847,13.85169021244001,statistical peak; historical event attribution not yet verified
+GPRHT,Historical geopolitical threats,2001Q4,134.2841542561849,46.41296895345053,109.3515084584554,14.71866297047299,statistical peak; historical event attribution not yet verified
+GPRHT,Historical geopolitical threats,2003Q1,209.0225067138672,121.1513214111328,109.3515084584554,14.71866297047299,statistical peak; historical event attribution not yet verified
+GPRHT,Historical geopolitical threats,2004Q3,118.4781723022461,34.01676686604817,109.3515084584554,14.71866297047299,statistical peak; historical event attribution not yet verified
+GPRHT,Historical geopolitical threats,2014Q3,132.5419489542643,49.88887278238931,109.3515084584554,14.71866297047299,statistical peak; historical event attribution not yet verified
+GPRHT,Historical geopolitical threats,2015Q3,121.3622767130534,38.34145100911459,109.3515084584554,14.71866297047299,statistical peak; historical event attribution not yet verified
+GPRHT,Historical geopolitical threats,2017Q3,137.0101903279622,53.13345845540366,109.3515084584554,14.71866297047299,statistical peak; historical event attribution not yet verified
+GPRHT,Historical geopolitical threats,2020Q1,122.4567998250325,36.49838002522786,109.3515084584554,14.71866297047299,statistical peak; historical event attribution not yet verified
+GPRHT,Historical geopolitical threats,2022Q1,200.9586435953776,76.27581278483072,109.3515084584554,14.71866297047299,statistical peak; historical event attribution not yet verified
+GPRHT,Historical geopolitical threats,2023Q4,149.7592112223307,40.92540995279947,109.3515084584554,14.71866297047299,statistical peak; historical event attribution not yet verified
+GPRHT,Historical geopolitical threats,2025Q2,190.0498708089193,30.687983194987,109.3515084584554,14.71866297047299,statistical peak; historical event attribution not yet verified
+GPRHA,Historical geopolitical acts,2001Q4,351.1657409667969,239.2868016560872,95.55673281351724,21.78880726241398,statistical peak; historical event attribution not yet verified
+GPRHA,Historical geopolitical acts,2003Q2,184.3849741617838,65.42889149983723,95.55673281351724,21.78880726241398,statistical peak; historical event attribution not yet verified
+GPRHA,Historical geopolitical acts,2004Q3,150.3792622884115,31.42317962646486,95.55673281351724,21.78880726241398,statistical peak; historical event attribution not yet verified
+GPRHA,Historical geopolitical acts,2005Q3,119.4492009480794,34.14454905192056,95.55673281351724,21.78880726241398,statistical peak; historical event attribution not yet verified
+GPRHA,Historical geopolitical acts,2006Q3,109.1556549072266,30.94055430094402,95.55673281351724,21.78880726241398,statistical peak; historical event attribution not yet verified
+GPRHA,Historical geopolitical acts,2015Q4,145.3056767781576,65.49707031250001,95.55673281351724,21.78880726241398,statistical peak; historical event attribution not yet verified
+GPRHA,Historical geopolitical acts,2023Q4,153.0542144775391,55.99242909749348,95.55673281351724,21.78880726241398,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_1,War threats,2003Q1,1.37018084526062,1.111576899886131,0.3435037781794866,0.09464478477274568,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_1,War threats,2014Q3,0.349260613322258,0.1129294236501058,0.3435037781794866,0.09464478477274568,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_1,War threats,2015Q3,0.3510684420665105,0.1154383023579915,0.3435037781794866,0.09464478477274568,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_1,War threats,2018Q2,0.4051682353019714,0.1013136307398478,0.3435037781794866,0.09464478477274568,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_1,War threats,2020Q1,0.5115112562974294,0.2444368501504263,0.3435037781794866,0.09464478477274568,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_1,War threats,2022Q1,0.9242163697878519,0.387953241666158,0.3435037781794866,0.09464478477274568,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_1,War threats,2023Q4,0.8084738254547119,0.28836989402771,0.3435037781794866,0.09464478477274568,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_1,War threats,2025Q2,0.8234404722849528,0.3212339083353678,0.3435037781794866,0.09464478477274568,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_2,Peace threats,2001Q2,0.099490687251091,0.05200511030852795,0.05489162588492036,0.01249471984817172,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_2,Peace threats,2003Q1,0.1554086804389954,0.1079231034964323,0.05489162588492036,0.01249471984817172,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_2,Peace threats,2004Q2,0.06359689868986607,0.01702006906270981,0.05489162588492036,0.01249471984817172,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_2,Peace threats,2006Q4,0.1108426178495089,0.073781439413627,0.05489162588492036,0.01249471984817172,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_2,Peace threats,2008Q1,0.07927553355693817,0.04221435512105624,0.05489162588492036,0.01249471984817172,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_2,Peace threats,2014Q3,0.06814789523681004,0.04119767186542352,0.05489162588492036,0.01249471984817172,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_2,Peace threats,2016Q4,0.1017522091666857,0.08063774928450584,0.05489162588492036,0.01249471984817172,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_2,Peace threats,2019Q1,0.08326708525419235,0.07321178105970223,0.05489162588492036,0.01249471984817172,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_2,Peace threats,2022Q1,0.07994645833969116,0.03991541142265002,0.05489162588492036,0.01249471984817172,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_2,Peace threats,2024Q1,0.0887940302491188,0.06434265772501628,0.05489162588492036,0.01249471984817172,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_2,Peace threats,2025Q1,0.0770872322221597,0.0439948309212923,0.05489162588492036,0.01249471984817172,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_3,Military buildups,2003Q1,1.385715484619141,0.8155199587345123,1.313920537630717,0.2370487966032468,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_3,Military buildups,2014Q3,1.756416916847229,0.8268551429112753,1.313920537630717,0.2370487966032468,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_3,Military buildups,2015Q3,1.581941644350688,0.652379870414734,1.313920537630717,0.2370487966032468,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_3,Military buildups,2017Q3,1.680842876434326,0.6706140438715618,1.313920537630717,0.2370487966032468,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_3,Military buildups,2020Q1,1.72850775718689,0.5771115223566692,1.313920537630717,0.2370487966032468,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_3,Military buildups,2022Q1,3.065299431482951,1.456796844800313,1.313920537630717,0.2370487966032468,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_3,Military buildups,2023Q4,1.745106816291809,0.2758249044418335,1.313920537630717,0.2370487966032468,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_4,Nuclear threats,2003Q1,1.051647226015727,0.5818001627922058,0.5889593760172526,0.09962183677337554,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_4,Nuclear threats,2004Q1,0.636157751083374,0.1663106878598531,0.5889593760172526,0.09962183677337554,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_4,Nuclear threats,2006Q4,0.7725881735483805,0.3704213400681813,0.5889593760172526,0.09962183677337554,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_4,Nuclear threats,2007Q4,0.7053065498669943,0.3031397163867951,0.5889593760172526,0.09962183677337554,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_4,Nuclear threats,2009Q2,0.7173661788304647,0.2062690655390422,0.5889593760172526,0.09962183677337554,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_4,Nuclear threats,2010Q2,0.7026989459991455,0.191601832707723,0.5889593760172526,0.09962183677337554,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_4,Nuclear threats,2012Q1,0.73865673939387,0.3729297320048014,0.5889593760172526,0.09962183677337554,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_4,Nuclear threats,2013Q4,0.7054180204868317,0.3396910130977631,0.5889593760172526,0.09962183677337554,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_4,Nuclear threats,2015Q3,0.8851264913876852,0.5648798942565918,0.5889593760172526,0.09962183677337554,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_4,Nuclear threats,2017Q3,1.266895830631256,0.7457908789316813,0.5889593760172526,0.09962183677337554,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_4,Nuclear threats,2022Q4,0.8528422315915426,0.5558073818683624,0.5889593760172526,0.09962183677337554,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_4,Nuclear threats,2025Q2,1.001321017742157,0.5908592740694683,0.5889593760172526,0.09962183677337554,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_5,Terror threats,2001Q4,1.17258091767629,0.6738390624523163,0.3371638680497805,0.1009816601455806,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_5,Terror threats,2003Q1,0.8801688750584921,0.3814270198345185,0.3371638680497805,0.1009816601455806,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_5,Terror threats,2004Q3,0.939136266708374,0.4844544529914856,0.3371638680497805,0.1009816601455806,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_5,Terror threats,2005Q3,0.4934073785940806,0.1978450119495392,0.3371638680497805,0.1009816601455806,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_5,Terror threats,2006Q3,0.4347992837429047,0.1704056362311046,0.3371638680497805,0.1009816601455806,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_5,Terror threats,2007Q3,0.4678647418816884,0.2407710403203964,0.3371638680497805,0.1009816601455806,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_5,Terror threats,2014Q3,0.396436130007108,0.2047529518604278,0.3371638680497805,0.1009816601455806,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_5,Terror threats,2015Q4,0.6966462781031927,0.3642134716113409,0.3371638680497805,0.1009816601455806,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_6,Beginning of war,2001Q4,0.5321853260199229,0.1942280232906341,0.4893404791752498,0.1780942991705152,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_6,Beginning of war,2003Q1,1.405938943227132,0.9543222188949585,0.4893404791752498,0.1780942991705152,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_6,Beginning of war,2006Q3,0.6167173981666565,0.2650204002857208,0.4893404791752498,0.1780942991705152,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_6,Beginning of war,2011Q2,0.6133212447166443,0.2512003183364868,0.4893404791752498,0.1780942991705152,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_6,Beginning of war,2014Q3,0.5737340450286865,0.2863235920667648,0.4893404791752498,0.1780942991705152,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_6,Beginning of war,2022Q2,1.292390028635661,0.386498252550761,0.4893404791752498,0.1780942991705152,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_6,Beginning of war,2023Q4,1.785599867502848,0.6464200019836426,0.4893404791752498,0.1780942991705152,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_7,Escalation of war,2001Q4,0.5986345609029134,0.2396703263123831,0.5986314142743747,0.08544642388249511,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_7,Escalation of war,2003Q2,0.8725974162419637,0.3226693471272787,0.5986314142743747,0.08544642388249511,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_7,Escalation of war,2004Q4,0.9982807834943136,0.4309022823969524,0.5986314142743747,0.08544642388249511,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_7,Escalation of war,2006Q3,0.779451310634613,0.2382937073707581,0.5986314142743747,0.08544642388249511,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_7,Escalation of war,2009Q4,0.6467204888661703,0.1811391313870748,0.5986314142743747,0.08544642388249511,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_7,Escalation of war,2011Q2,0.775787353515625,0.2692885100841522,0.5986314142743747,0.08544642388249511,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_7,Escalation of war,2012Q4,0.6003711620966593,0.09387231866518653,0.5986314142743747,0.08544642388249511,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_7,Escalation of war,2014Q3,0.7373377680778503,0.3004099726676941,0.5986314142743747,0.08544642388249511,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_7,Escalation of war,2015Q4,0.6493212878704071,0.2410949965318044,0.5986314142743747,0.08544642388249511,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_7,Escalation of war,2016Q4,0.6088143090407053,0.2182685881853103,0.5986314142743747,0.08544642388249511,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_7,Escalation of war,2024Q4,0.9126326441764832,0.4022990862528483,0.5986314142743747,0.08544642388249511,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_8,Terror acts,2001Q4,6.305813312530518,4.627498825391133,0.9128467937310536,0.3931079710704351,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_8,Terror acts,2004Q3,2.105642914772034,0.5488450527191162,0.9128467937310536,0.3931079710704351,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_8,Terror acts,2005Q3,1.63139537970225,0.74713267882665,0.9128467937310536,0.3931079710704351,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_8,Terror acts,2015Q4,2.045026143391927,1.274970908959707,0.9128467937310536,0.3931079710704351,statistical peak; historical event attribution not yet verified
+SHAREH_CAT_8,Terror acts,2023Q4,1.237758139769236,0.8832620183626811,0.9128467937310536,0.3931079710704351,statistical peak; historical event attribution not yet verified

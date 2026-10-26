@@ -1,0 +1,133 @@
+name: GPR categories - separate exogenous VARX shocks and own peaks
+on:
+  push:
+    paths:
+      - '8.12/gpr_categories_exogenous/**'
+      - '.github/workflows/gpr-categories-exogenous.yml'
+  workflow_dispatch:
+    inputs:
+      estimate:
+        type: boolean
+        default: true
+      saves:
+        default: '1000'
+      burns:
+        default: '1000'
+permissions:
+  contents: read
+env:
+  TVPGVAR_P: '1'
+  TVPGVAR_SAVES: ${{ inputs.saves || '1000' }}
+  TVPGVAR_BURNS: ${{ inputs.burns || '1000' }}
+  TVPGVAR_THIN: '0.5'
+  TVPGVAR_HORIZON: '12'
+  TVPGVAR_CPU: '2'
+  OPENBLAS_NUM_THREADS: '1'
+  OMP_NUM_THREADS: '1'
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas numpy xlrd openpyxl scipy statsmodels
+      - name: Verify source snapshot, actual sample, zero months and independent peaks
+        run: |
+          python3 8.12/gpr_categories_exogenous/build_data.py --verify
+          python3 8.12/gpr_categories_exogenous/test_data.py
+          python3 8.12/country_epu_oil/freeze_candidate.py --verify
+          python3 8.12/gpr_categories_exogenous/diagnostics.py
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.4.2'
+      - name: Parse R, test external placement and analytical no-feedback IRF
+        run: |
+          Rscript -e 'for(f in list.files("8.12/gpr_categories_exogenous",pattern="[.]R$",full.names=TRUE))parse(f)'
+          Rscript 8.12/gpr_categories_exogenous/test_architecture.R
+          Rscript -e 'out <- "SENTINEL"; source("8.12/country_epu_oil/patch_estimator.R"); stopifnot(out == "SENTINEL")'
+      - name: Test all 14 actual designs and save conditional OLS diagnostics
+        env:
+          PREFLIGHT_ONLY: 'true'
+        run: |
+          for s in GPR GPRT GPRA GPRH GPRHT GPRHA SHAREH_CAT_1 SHAREH_CAT_2 SHAREH_CAT_3 SHAREH_CAT_4 SHAREH_CAT_5 SHAREH_CAT_6 SHAREH_CAT_7 SHAREH_CAT_8; do
+            GPR_SERIES="$s" Rscript 8.12/gpr_categories_exogenous/run.R
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gpr-categories-AUDIT-${{ github.run_id }}
+          path: |
+            results/gpr_categories_exogenous/
+            8.12/gpr_categories_exogenous/data_20261026/
+          retention-days: 90
+  estimate:
+    needs: audit
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.estimate) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[run-gpr-categories]')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        series: [SHAREH_CAT_1, SHAREH_CAT_2, SHAREH_CAT_3, SHAREH_CAT_4, SHAREH_CAT_5, SHAREH_CAT_6, SHAREH_CAT_7, SHAREH_CAT_8, GPR, GPRT, GPRA, GPRH, GPRHT, GPRHA]
+    env:
+      GPR_SERIES: ${{ matrix.series }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: '4.4.2'
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: |
+            any::remotes
+            any::snowfall
+            any::zoo
+            any::Matrix
+            any::mvtnorm
+            any::coda
+            any::bayesm
+            any::psych
+            any::MCMCpack
+            any::mnormt
+            any::rARPACK
+            any::GIGrvg
+            any::dlm
+            any::Rcpp
+            any::RcppArmadillo
+      - name: Install the original solver and smoke-test scalar external AR path
+        run: |
+          Rscript -e 'remotes::install_version("stochvol",version="3.2.9",repos="https://cloud.r-project.org",upgrade="never")'
+          sed -i 's|inv_f=solve(f.t(),Vtt.t(), "std").t();|inv_f=solve(arma::mat(f.t()),arma::mat(Vtt.t()), "std").t();|' threshtvp_source/src/threshold_functions.cpp
+          R CMD INSTALL threshtvp_source
+          Rscript 8.12/country_epu_oil/test_scalar_estimator.R
+      - name: Estimate one independent category; preserve posterior and own-peak IRF draws
+        run: Rscript --vanilla 8.12/gpr_categories_exogenous/run.R
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install pandas numpy matplotlib
+      - name: Plot every own peak and count 68 and 90 percent responses
+        run: python3 8.12/gpr_categories_exogenous/plot.py --series "$GPR_SERIES"
+      - name: Preserve the model posterior and every selected IRF draw
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gpr-category-${{ matrix.series }}-${{ github.run_id }}
+          path: results/gpr_categories_exogenous/${{ matrix.series }}/
+          retention-days: 90
+      - name: Separate light figures and tables from posterior downloads
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gpr-category-FIGURES-${{ matrix.series }}-${{ github.run_id }}
+          path: |
+            results/gpr_categories_exogenous/${{ matrix.series }}/*.csv
+            results/gpr_categories_exogenous/${{ matrix.series }}/*.pdf
+            results/gpr_categories_exogenous/${{ matrix.series }}/*.json
+            results/gpr_categories_exogenous/${{ matrix.series }}/*.txt
+            results/gpr_categories_exogenous/${{ matrix.series }}/figures/
+          retention-days: 90

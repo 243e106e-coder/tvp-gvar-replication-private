@@ -1,0 +1,10 @@
+{
+  "height_quantile": 0.75,
+  "minimum_prominence_sd": 0.5,
+  "minimum_distance_quarters": 4,
+  "neighbourhood_quarters": 4,
+  "endpoints": "excluded; two-sided confirmation required",
+  "ties": "first quarter of plateau; higher peaks first, earlier wins ties",
+  "selection_sample": "actual common estimation window ONLY; not full available GPR history",
+  "selection_target": "each raw quarterly category mean, never its IRF or significance"
+}
