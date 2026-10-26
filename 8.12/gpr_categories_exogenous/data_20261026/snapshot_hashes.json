@@ -1,0 +1,13 @@
+{
+  "gpr_quarterly_levels.csv": "f5f3f558b5fbc7a7d38b6e1f371c7d91f4221972633149bd3505e03ddb95a8f1",
+  "official_series_inventory.csv": "c06826831fa13b4f44539e9848a8dd2b864f5bbaca1bd42e4d9af4bfedb742df",
+  "gpr_quarterly_logs.csv": "31e30b969cca367d9570b058cb93092e7369c6e938545fa523b502f84a1f1187",
+  "source_data_gpr_export.xls": "97af839913606a4bbf4315130b3b1d08d25e37398110c3d2207dc1179f9ff0eb",
+  "run_manifest.csv": "67015a51a3b688cb6483190037a217f318d78653d01cec8439b3562300afee8a",
+  "source_manifest.json": "f267fd2d516d849aa2d130d5506056f974f42abc2bf6bbd6e31f8398fe762d46",
+  "macro_input.csv": "882d3c9d32fcd7c344edfc7933b81bdb972413e9088f1a61bc5bc535971f683e",
+  "gpr_monthly_selected.csv": "bfed1dad9906cf1ddede23d2517d42d39601bcb69c77b53a804dc090401e59c5",
+  "peak_rules.json": "d03c5d52be3069c979ad134a0ab723aa68785bfa166b30825e75fbeba6bbf646",
+  "peak_dates.csv": "07cb3c60323c0d6eb14cc9f6410f0eebda5f251d7db2454c7620a723a90b118c",
+  "design_preflight.csv": "343d4f5f79af6de39f80ea9c32dbc685ffa7c770b4213ac38662f815cfa04b05"
+}
