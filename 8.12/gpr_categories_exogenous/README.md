@@ -97,3 +97,7 @@ Rscript 8.12/gpr_categories_exogenous/test_architecture.R
 GPR_SERIES=SHAREH_CAT_1 Rscript 8.12/gpr_categories_exogenous/run.R
 python3 8.12/gpr_categories_exogenous/plot.py --series SHAREH_CAT_1
 ```
+
+## 本批启动记录
+
+数据冻结、14组实际设计与外生路径解析测试已在 [审计运行40276360625](https://github.com/243e106e-coder/tvp-gvar-replication-private/actions/runs/40276360625) 通过。该审计运行未执行MCMC；后续带明确运行标记的提交启动14组正式估计。原模型的利率与贸易权重限制并未因此消失。
